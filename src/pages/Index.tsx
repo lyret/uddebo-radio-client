@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Radio, Upload } from "lucide-react";
+import { Radio, Upload, User } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioPlayer } from "@/components/RadioPlayer";
 import { RecordingUpload } from "@/components/RecordingUpload";
+import { AccountAuth } from "@/components/AccountAuth";
 
 const Index = () => {
   return (
@@ -29,7 +30,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <Tabs defaultValue="player" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="player" className="flex items-center space-x-2">
               <Radio className="h-4 w-4" />
               <span>Radio Player</span>
@@ -37,6 +38,10 @@ const Index = () => {
             <TabsTrigger value="upload" className="flex items-center space-x-2">
               <Upload className="h-4 w-4" />
               <span>Upload Recording</span>
+            </TabsTrigger>
+            <TabsTrigger value="account" className="flex items-center space-x-2">
+              <User className="h-4 w-4" />
+              <span>Account</span>
             </TabsTrigger>
           </TabsList>
 
@@ -46,6 +51,10 @@ const Index = () => {
 
           <TabsContent value="upload" className="space-y-6">
             <RecordingUpload />
+          </TabsContent>
+
+          <TabsContent value="account" className="space-y-6">
+            <AccountAuth />
           </TabsContent>
         </Tabs>
       </main>
