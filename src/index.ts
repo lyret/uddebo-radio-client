@@ -8,9 +8,10 @@ const searchParams = new URLSearchParams(window.location.search);
 const debugMode = searchParams.has("debug");
 
 if (debugMode) {
-	await authenticationStore.initialize();
-	new App({
-		target: document.getElementById("app")!,
+	authenticationStore.initialize().then(() => {
+		new App({
+			target: document.getElementById("app")!,
+		});
 	});
 } else {
 	new Announcement({
