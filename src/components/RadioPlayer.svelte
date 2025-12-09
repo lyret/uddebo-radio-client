@@ -209,11 +209,11 @@
 		<!-- Volume Control -->
 		<div class="field is-horizontal">
 			<div class="field-label is-small">
-				<label class="label">
+				<span class="label">
 					<span class="icon">
 						<Volume2 size={20} />
 					</span>
-				</label>
+				</span>
 			</div>
 			<div class="field-body">
 				<div class="field">

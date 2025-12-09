@@ -16,8 +16,8 @@
 		"@tanstack/svelte-query": "^5.83.0",
 		"bulma": "^0.9.4",
 		"lucide-svelte": "^0.462.0",
-		"svelte-spa-router": "^4.0.0",
 		"svelte-sonner": "^0.3.0",
+		"svelte-spa-router": "^4.0.0",
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
