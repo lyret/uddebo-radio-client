@@ -1,0 +1,68 @@
+# AI Development Guidelines
+
+## Code Style & Guidelines
+
+- Keep code simple and direct
+- Avoid unnecessary error handling wrappers
+- Remove unused code and don't create legacy code paths when refactoring.
+
+### ESLint Configuration
+- Tabs for indentation (not spaces)
+- Double quotes for strings
+- Semicolons required
+- Max line length: 160 characters
+- TypeScript strict mode enabled
+- Consistent type imports preferred
+
+### Documentation Standards
+- **JSDocs required** for all exported entities and top-level variables
+- Single-line comments (`//`) for inline function documentation
+- Avoid excessive console.log statements
+
+### File Naming
+- TypeScript files use `.ts` extension
+- Svelte components use `.svelte` extension
+- Private/internal files prefixed with `_`
+
+### Styling
+- Do not create inline styles
+
+## AI Assistant Behavior Rules
+
+### Prohibited Actions
+- **NEVER create documentation files** (README.md, example files, implementation guides, etc.)
+- **NEVER create demonstration files** or example code files
+- **NEVER run linting commands** (npm run lint, eslint, etc.)
+- **NEVER create markdown files** for examples, documentation, or summaries
+- **NEVER start the server** - Only build the project for testing purposes
+
+### Required Behavior
+- Focus solely on implementing requested functionality
+- Provide brief explanations in responses, not separate documentation files
+- Test builds only when necessary for verification
+- Work directly with the codebase without creating auxiliary files
+
+## Code Architecture Guidelines
+
+### Functional Programming Approach
+- **AVOID classes** - Use functional programming patterns instead
+- Prefer pure functions, modules, and data structures over class-based OOP
+- Use factory functions or plain objects instead of class instances
+- Export functions and data directly from modules rather than class methods
+- Exception: Only use classes when extending from required base classes (e.g., EventEmitter)
+
+### File Naming Conventions
+- **Use lowercase filenames** - Never start filenames with uppercase letters
+- Use camelCase for multi-word filenames (e.g., `adapterRegistry.ts`, not `AdapterRegistry.ts`)
+- Name files after their primary exported function or purpose
+- Avoid generic names like "Manager" - be specific about what the file does
+
+### Index File Guidelines
+- **Index files are export-only** - Use `index.ts` files solely for organizing imports and exports
+- Move all implementation logic to separate, descriptively named files
+- Index files should contain only `export` statements and type re-exports
+- **Prefer wildcard exports** - Use `export * from './module'` instead of explicit named exports in barrel files (TypeScript modules only; Svelte components require explicit default exports)
+- Keep index files minimal and focused on providing a clean public API
+
+## License
+Creative Commons BY-NC 4.0 (non-commercial use)
