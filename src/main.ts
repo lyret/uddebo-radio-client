@@ -1,8 +1,17 @@
 import "./App.css";
 import App from "./App.svelte";
+import Announcement from "./Announcement.svelte";
 
-const app = new App({
-	target: document.getElementById("app")!,
-});
+// Check if debug parameter is set in search params
+const searchParams = new URLSearchParams(window.location.search);
+const debugMode = searchParams.has("debug");
 
-export default app;
+if (debugMode) {
+	new App({
+		target: document.getElementById("app")!,
+	});
+} else {
+	new Announcement({
+		target: document.getElementById("app")!,
+	});
+}

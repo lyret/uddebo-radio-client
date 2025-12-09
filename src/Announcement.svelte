@@ -1,7 +1,3 @@
-<script lang="ts">
-	import { Radio } from "lucide-svelte";
-</script>
-
 <section class="section">
 	<div class="container">
 		<div class="columns is-centered">
