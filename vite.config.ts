@@ -6,6 +6,10 @@ import path from "node:path";
 export default defineConfig({
 	base: "/",
 	plugins: [svelte()],
+	build: {
+		outDir: "./.dist",
+		emptyOutDir: true,
+	},
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
