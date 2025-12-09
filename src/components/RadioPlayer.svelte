@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
 	import { Play, Pause, Volume2, SkipForward, SkipBack } from "lucide-svelte";
-	import { supabase } from "@/integrations/supabase/client";
 	import { toast } from "svelte-sonner";
-
-	interface Recording {
-		id: string;
-		title: string;
-		artist: string | null;
-		file_url: string;
-		duration: number | null;
-	}
+	import type { Recording } from "@/api";
+	import { supabase } from "@/api";
 
 	let isPlaying = false;
 	let currentTime = 0;
@@ -38,8 +31,8 @@
 			const { data, error } = await supabase
 				.from("recordings")
 				.select("*")
-				.eq("is_active", true)
-				.order("created_at", { ascending: false });
+				.not("type", "eq", "rejected")
+				.order("uploaded_at", { ascending: false });
 
 			if (error) throw error;
 			recordings = data || [];
@@ -149,10 +142,10 @@
 		<!-- Track Info -->
 		<div class="has-text-centered mb-5">
 			<h2 class="title is-4">
-				{currentTrack?.title || "No track selected"}
+				{currentTrack?.title || "Untitled Recording"}
 			</h2>
-			{#if currentTrack?.artist}
-				<p class="subtitle is-6">{currentTrack.artist}</p>
+			{#if currentTrack?.author}
+				<p class="subtitle is-6">{currentTrack.author}</p>
 			{/if}
 		</div>
 

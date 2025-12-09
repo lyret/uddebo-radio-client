@@ -1,33 +1,12 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
-	import { supabase } from "@/integrations/supabase/client";
-	import type { User } from "@supabase/supabase-js";
 	import { toast } from "svelte-sonner";
 	import { LogOut, User as UserIcon } from "lucide-svelte";
+	import { authenticationStore, supabase } from "@/api";
 
-	let user: User | null = null;
 	let loading = false;
 	let email = "";
 	let password = "";
 	let activeTab = "signin";
-	let subscription: { unsubscribe: () => void };
-
-	onMount(() => {
-		// Set up auth state listener
-		const authListener = supabase.auth.onAuthStateChange((_event, _session) => {
-			user = _session?.user ?? null;
-		});
-		subscription = authListener.data.subscription;
-
-		// Check for existing session
-		supabase.auth.getSession().then(({ data: { session: _session } }) => {
-			user = _session?.user ?? null;
-		});
-	});
-
-	onDestroy(() => {
-		subscription?.unsubscribe();
-	});
 
 	async function signUp(email: string, password: string) {
 		const redirectUrl = `${window.location.origin}/`;
@@ -42,16 +21,13 @@
 		return { error };
 	}
 
-	async function signIn(email: string, password: string) {
-		const { error } = await supabase.auth.signInWithPassword({
-			email,
-			password,
-		});
-		return { error };
+	async function signInHandler() {
+		const { error } = await authenticationStore.signIn(email, password);
+		return error;
 	}
 
-	async function signOut() {
-		const { error } = await supabase.auth.signOut();
+	async function signOutHandler() {
+		const { error } = await authenticationStore.signOut();
 		if (error) {
 			toast.error("Error signing out: " + error.message);
 		} else {
@@ -67,15 +43,15 @@
 
 		loading = true;
 		try {
-			const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
+			const error = isSignUp ? (await signUp(email, password)).error : await signInHandler();
 
 			if (error) {
-				if (error.message.includes("User already registered")) {
+				if (error.message?.includes("User already registered")) {
 					toast.error("This email is already registered. Please sign in instead.");
-				} else if (error.message.includes("Invalid login credentials")) {
+				} else if (error.message?.includes("Invalid login credentials")) {
 					toast.error("Invalid email or password. Please check your credentials.");
 				} else {
-					toast.error(error.message);
+					toast.error(error.message || "An error occurred");
 				}
 			} else {
 				if (isSignUp) {
@@ -95,7 +71,7 @@
 </script>
 
 <div>
-	{#if user}
+	{#if $authenticationStore}
 		<div class="message is-primary">
 			<div class="message-header">
 				<p>
@@ -108,11 +84,15 @@
 			<div class="message-body">
 				<p class="mb-2">You're signed in and ready to upload recordings</p>
 				<p class="mb-4">
-					<strong>{user.email}</strong>
+					<strong>{$authenticationStore.email}</strong>
 					<br />
-					<small>Account created: {new Date(user.created_at).toLocaleDateString()}</small>
+					<small
+						>Account created: {new Date(
+							$authenticationStore.created_at
+						).toLocaleDateString()}</small
+					>
 				</p>
-				<button class="button is-fullwidth" on:click={signOut}>
+				<button class="button is-fullwidth" on:click={signOutHandler}>
 					<span class="icon">
 						<LogOut size={16} />
 					</span>

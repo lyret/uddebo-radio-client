@@ -10,42 +10,162 @@ export type Database = {
 		Tables: {
 			recordings: {
 				Row: {
-					artist: string | null;
-					created_at: string;
-					duration: number | null;
-					file_size: number | null;
-					file_url: string;
 					id: string;
-					is_active: boolean | null;
-					title: string;
-					updated_at: string;
+					edited_at: string;
+					edited_by: string | null;
+					uploaded_at: string;
+					uploaded_filename: string;
 					uploaded_by: string | null;
+					duration: number;
+					file_size: number;
+					file_url: string;
+					title: string | null;
+					author: string | null;
+					description: string | null;
+					link_out_url: string | null;
+					captions_url: string | null;
+					cover_url: string | null;
+					type:
+						| "unknown"
+						| "rejected"
+						| "music"
+						| "news"
+						| "commentary"
+						| "talk"
+						| "comedy"
+						| "talkshow"
+						| "interview"
+						| "other";
 				};
 				Insert: {
-					artist?: string | null;
-					created_at?: string;
-					duration?: number | null;
-					file_size?: number | null;
-					file_url: string;
 					id?: string;
-					is_active?: boolean | null;
-					title: string;
-					updated_at?: string;
+					edited_at?: string;
+					edited_by?: string | null;
+					uploaded_at?: string;
+					uploaded_filename: string;
 					uploaded_by?: string | null;
+					duration: number;
+					file_size: number;
+					file_url: string;
+					title?: string | null;
+					author?: string | null;
+					description?: string | null;
+					link_out_url?: string | null;
+					captions_url?: string | null;
+					cover_url?: string | null;
+					type?:
+						| "unknown"
+						| "rejected"
+						| "music"
+						| "news"
+						| "commentary"
+						| "talk"
+						| "comedy"
+						| "talkshow"
+						| "interview"
+						| "other";
 				};
 				Update: {
-					artist?: string | null;
-					created_at?: string;
-					duration?: number | null;
-					file_size?: number | null;
-					file_url?: string;
 					id?: string;
-					is_active?: boolean | null;
-					title?: string;
-					updated_at?: string;
+					edited_at?: string;
+					edited_by?: string | null;
+					uploaded_at?: string;
+					uploaded_filename?: string;
 					uploaded_by?: string | null;
+					duration?: number;
+					file_size?: number;
+					file_url?: string;
+					title?: string | null;
+					author?: string | null;
+					description?: string | null;
+					link_out_url?: string | null;
+					captions_url?: string | null;
+					cover_url?: string | null;
+					type?:
+						| "unknown"
+						| "rejected"
+						| "music"
+						| "news"
+						| "commentary"
+						| "talk"
+						| "comedy"
+						| "talkshow"
+						| "interview"
+						| "other";
 				};
-				Relationships: [];
+				Relationships: [
+					{
+						foreignKeyName: "recordings_edited_by_fkey";
+						columns: ["edited_by"];
+						isOneToOne: false;
+						referencedRelation: "users";
+						referencedColumns: ["id"];
+					},
+					{
+						foreignKeyName: "recordings_uploaded_by_fkey";
+						columns: ["uploaded_by"];
+						isOneToOne: false;
+						referencedRelation: "users";
+						referencedColumns: ["id"];
+					},
+				];
+			};
+			broadcast_programs: {
+				Row: {
+					id: string;
+					edited_at: string;
+					edited_by: string | null;
+					created_at: string;
+					created_by: string | null;
+					title: string;
+					description: string | null;
+					cover_url: string | null;
+					is_active: boolean;
+					start_time: string;
+					recordings: string[];
+				};
+				Insert: {
+					id?: string;
+					edited_at?: string;
+					edited_by?: string | null;
+					created_at?: string;
+					created_by?: string | null;
+					title: string;
+					description?: string | null;
+					cover_url?: string | null;
+					is_active?: boolean;
+					start_time: string;
+					recordings?: string[];
+				};
+				Update: {
+					id?: string;
+					edited_at?: string;
+					edited_by?: string | null;
+					created_at?: string;
+					created_by?: string | null;
+					title?: string;
+					description?: string | null;
+					cover_url?: string | null;
+					is_active?: boolean;
+					start_time?: string;
+					recordings?: string[];
+				};
+				Relationships: [
+					{
+						foreignKeyName: "broadcast_programs_edited_by_fkey";
+						columns: ["edited_by"];
+						isOneToOne: false;
+						referencedRelation: "users";
+						referencedColumns: ["id"];
+					},
+					{
+						foreignKeyName: "broadcast_programs_created_by_fkey";
+						columns: ["created_by"];
+						isOneToOne: false;
+						referencedRelation: "users";
+						referencedColumns: ["id"];
+					},
+				];
 			};
 		};
 		Views: {
@@ -55,7 +175,17 @@ export type Database = {
 			[_ in never]: never;
 		};
 		Enums: {
-			[_ in never]: never;
+			recording_type:
+				| "unknown"
+				| "rejected"
+				| "music"
+				| "news"
+				| "commentary"
+				| "talk"
+				| "comedy"
+				| "talkshow"
+				| "interview"
+				| "other";
 		};
 		CompositeTypes: {
 			[_ in never]: never;
@@ -180,6 +310,30 @@ export type CompositeTypes<
 
 export const Constants = {
 	public: {
-		Enums: {},
+		Enums: {
+			recording_type: [
+				"unknown",
+				"rejected",
+				"music",
+				"news",
+				"commentary",
+				"talk",
+				"comedy",
+				"talkshow",
+				"interview",
+				"jingle",
+				"other",
+			] as const,
+		},
 	},
 } as const;
+
+// Export convenience types
+export type Recording = Tables<"recordings">;
+export type RecordingInsert = TablesInsert<"recordings">;
+export type RecordingUpdate = TablesUpdate<"recordings">;
+export type RecordingType = Enums<"recording_type">;
+
+export type BroadcastProgram = Tables<"broadcast_programs">;
+export type BroadcastProgramInsert = TablesInsert<"broadcast_programs">;
+export type BroadcastProgramUpdate = TablesUpdate<"broadcast_programs">;

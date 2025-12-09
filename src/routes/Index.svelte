@@ -4,15 +4,9 @@
 	import RecordingUpload from "@/components/RecordingUpload.svelte";
 	import AccountAuth from "@/components/AccountAuth.svelte";
 	import BroadcastPrograms from "@/components/BroadcastPrograms.svelte";
-	import { auth, isAdmin } from "@/stores/auth";
-	import { onMount } from "svelte";
+	import { isAdmin } from "@/api";
 
 	let activeTab = "player";
-
-	// Initialize auth store
-	onMount(() => {
-		auth.initialize();
-	});
 </script>
 
 <div class="container is-fluid">

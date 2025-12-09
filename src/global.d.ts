@@ -1,3 +1,5 @@
+/// <reference types="svelte" />
+/// <reference types="vite/client" />
 /// <reference types="@sveltejs/kit" />
 /// <reference types="svelte" />
 
@@ -15,6 +17,12 @@ declare global {
 	interface Window {
 		// Add any custom window properties here
 	}
+}
+
+declare module "*.svelte" {
+	import type { ComponentType } from "svelte";
+	const component: ComponentType;
+	export default component;
 }
 
 // Ensure this is treated as a module

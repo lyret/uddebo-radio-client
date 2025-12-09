@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { Upload, Music, X } from "lucide-svelte";
-	import { supabase } from "@/integrations/supabase/client";
+	import { Upload, Music } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
+	import { supabase } from "@/api";
 
 	let uploading = false;
 	let selectedFile: File | null = null;
 	let title = "";
-	let artist = "";
+	let author = "";
 	let uploaderName = "";
 	let uploaderEmail = "";
 	let fileInput: HTMLInputElement;
@@ -74,7 +74,10 @@
 				.from("recordings")
 				.upload(fileName, selectedFile);
 
-			if (uploadError) throw uploadError;
+			if (uploadError) {
+				console.error("uploadError:", uploadError);
+				throw uploadError;
+			}
 
 			// Get public URL
 			const {
@@ -93,15 +96,19 @@
 			const duration = Math.floor(audio.duration);
 
 			// Save recording metadata to database
+			const uploadedAt = new Date().toISOString();
 			const recordingData = {
-				title: title.trim(),
-				artist: artist.trim() || null,
+				title: title.trim() || null,
+				author: author.trim() || null,
 				file_url: publicUrl,
 				file_size: selectedFile.size,
 				duration,
 				uploaded_by: user?.id || null,
-				uploader_name: uploaderName.trim() || null,
-				uploader_email: uploaderEmail.trim() || null,
+				uploaded_at: uploadedAt,
+				uploaded_filename: selectedFile.name,
+				edited_at: uploadedAt,
+				edited_by: user?.id || null,
+				type: "unknown" as const,
 			};
 
 			const { error: dbError } = await supabase.from("recordings").insert(recordingData);
@@ -115,7 +122,7 @@
 			// Reset form
 			selectedFile = null;
 			title = "";
-			artist = "";
+			author = "";
 			uploaderName = "";
 			uploaderEmail = "";
 
@@ -202,14 +209,14 @@
 
 		<!-- Artist -->
 		<div class="field">
-			<label class="label" for="artist">Artist</label>
+			<label class="label" for="author">Author</label>
 			<div class="control">
 				<input
-					id="artist"
+					id="author"
 					class="input"
 					type="text"
-					bind:value={artist}
-					placeholder="Enter the artist name"
+					bind:value={author}
+					placeholder="Enter the author name"
 				/>
 			</div>
 		</div>
