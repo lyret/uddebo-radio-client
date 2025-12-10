@@ -362,9 +362,13 @@
 					{/if}
 					{#if cover_url || (program && program.cover_url)}
 						<p class="help">
-							Current: <a href={cover_url || program.cover_url} target="_blank">View cover image</a>
+							<a
+								class="button is-info is-small ml-2 is-rounded is-outlined"
+								href={cover_url || program?.cover_url}
+								target="_blank">View current cover image</a
+							>
 							<button
-								class="button is-danger is-small ml-2"
+								class="button is-danger is-small ml-2 is-rounded is-outlined"
 								type="button"
 								on:click={deleteCoverImage}
 								disabled={loading}
@@ -381,7 +385,6 @@
 				<!-- Cover Image Preview -->
 				{#if cover_url || (program && program.cover_url)}
 					<div class="field">
-						<p class="label">Cover Preview</p>
 						<figure class="image is-square">
 							<img src={cover_url || program?.cover_url} alt="Program cover" />
 						</figure>
