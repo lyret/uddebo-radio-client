@@ -59,8 +59,8 @@
 	}
 
 	async function handleSubmit() {
-		if (!title.trim() || !startTime || selectedRecordings.length === 0) {
-			toast.error("Please fill in all required fields and select at least one recording");
+		if (!title.trim() || !startTime) {
+			toast.error("Please fill in all required fields");
 			return;
 		}
 
@@ -186,7 +186,7 @@
 </script>
 
 {#if $isAdmin}
-	<Layout>
+	<Layout fullWidth={true}>
 		<div class="broadcast-programs">
 			<div class="level">
 				<div class="level-left">
@@ -263,8 +263,8 @@
 						</div>
 
 						<div class="field">
-							<p class="label">Recordings *</p>
-							<p class="help mb-3">Select recordings and arrange them in order</p>
+							<p class="label">Recordings</p>
+							<p class="help mb-3">Select recordings and arrange them in order (optional)</p>
 
 							{#if selectedRecordings.length > 0}
 								<div class="box">
@@ -306,19 +306,27 @@
 								</div>
 							{/if}
 
-							<div class="recording-selection">
-								{#each recordings as recording}
-									{#if !selectedRecordings.includes(recording.id)}
-										<label class="checkbox is-block mb-2">
-											<input type="checkbox" on:change={() => toggleRecording(recording.id)} />
-											{recording.title || "Untitled"}
-											{#if recording.author}
-												<span class="has-text-grey"> - {recording.author}</span>
-											{/if}
-										</label>
-									{/if}
-								{/each}
-							</div>
+							{#if recordings.length === 0}
+								<div class="notification is-warning is-light">
+									<p>
+										No recordings available. Upload some recordings first to add them to programs.
+									</p>
+								</div>
+							{:else}
+								<div class="recording-selection">
+									{#each recordings as recording}
+										{#if !selectedRecordings.includes(recording.id)}
+											<label class="checkbox is-block mb-2">
+												<input type="checkbox" on:change={() => toggleRecording(recording.id)} />
+												{recording.title || "Untitled"}
+												{#if recording.author}
+													<span class="has-text-grey"> - {recording.author}</span>
+												{/if}
+											</label>
+										{/if}
+									{/each}
+								</div>
+							{/if}
 						</div>
 
 						<div class="field is-grouped">
@@ -375,7 +383,11 @@
 												<span class="icon is-small">
 													<Radio size={14} />
 												</span>
-												<span>{program.recordings.length} recordings</span>
+												<span
+													>{program.recordings.length === 0
+														? "No recordings yet"
+														: `${program.recordings.length} recording${program.recordings.length === 1 ? "" : "s"}`}</span
+												>
 											</span>
 										</div>
 									</div>
