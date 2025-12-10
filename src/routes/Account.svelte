@@ -16,15 +16,15 @@
 	async function signOutHandler() {
 		const { error } = await authenticationStore.signOut();
 		if (error) {
-			toast.error("Error signing out: " + error.message);
+			toast.error("Fel vid utloggning: " + error.message);
 		} else {
-			toast.success("Signed out successfully");
+			toast.success("Utloggning lyckades");
 		}
 	}
 
 	async function handleSubmit() {
 		if (!email || !password) {
-			toast.error("Please fill in all fields");
+			toast.error("Vänligen fyll i alla fält");
 			return;
 		}
 
@@ -34,19 +34,19 @@
 
 			if (error) {
 				if (error.message?.includes("User already registered")) {
-					toast.error("This email is already registered. Please sign in instead.");
+					toast.error("Den här e-postadressen är redan registrerad. Vänligen logga in istället.");
 				} else if (error.message?.includes("Invalid login credentials")) {
-					toast.error("Invalid email or password. Please check your credentials.");
+					toast.error("Ogiltig e-post eller lösenord. Vänligen kontrollera dina uppgifter.");
 				} else {
-					toast.error(error.message || "An error occurred");
+					toast.error(error.message || "Ett fel uppstod");
 				}
 			} else {
-				toast.success("Signed in successfully!");
+				toast.success("Inloggning lyckades!");
 				email = "";
 				password = "";
 			}
 		} catch (error) {
-			toast.error("An unexpected error occurred");
+			toast.error("Ett oväntat fel uppstod");
 		} finally {
 			loading = false;
 		}
@@ -62,45 +62,46 @@
 						<span class="icon">
 							<UserIcon />
 						</span>
-						<span>Welcome back!</span>
+						<span>Välkommen tillbaka!</span>
 					</p>
 				</div>
 				<div class="message-body">
-					<p class="mb-2">You're signed in and ready to upload recordings</p>
+					<p class="mb-2">Du är inloggad och redo att ladda upp inspelningar</p>
 					<p class="mb-4">
 						<strong>{$authenticationStore.email}</strong>
 						<br />
 						<small
-							>Account created: {new Date(
-								$authenticationStore.created_at
-							).toLocaleDateString()}</small
+							>Konto skapat: {new Date($authenticationStore.created_at).toLocaleDateString(
+								"sv-SE"
+							)}</small
 						>
 					</p>
 					<button class="button is-fullwidth" on:click={signOutHandler}>
 						<span class="icon">
 							<LogOut size={16} />
 						</span>
-						<span>Sign Out</span>
+						<span>Logga ut</span>
 					</button>
 				</div>
 			</div>
 		{:else}
 			<div>
-				<h3 class="title is-5">Account (Optional)</h3>
+				<h3 class="title is-5">Konto (Valfritt)</h3>
 				<p class="subtitle is-6">
-					Create an account to manage your uploads, or upload anonymously without signing up
+					Skapa ett konto för att hantera dina uppladdningar, eller ladda upp anonymt utan att
+					registrera dig
 				</p>
 
 				<form on:submit|preventDefault={() => handleSubmit()}>
 					<div class="field">
-						<label class="label" for="email">Email</label>
+						<label class="label" for="email">E-post</label>
 						<div class="control">
 							<input
 								id="email"
 								class="input"
 								type="email"
 								bind:value={email}
-								placeholder="Enter your email"
+								placeholder="Ange din e-postadress"
 								disabled={loading}
 								required
 							/>
@@ -108,14 +109,14 @@
 					</div>
 
 					<div class="field">
-						<label class="label" for="password">Password</label>
+						<label class="label" for="password">Lösenord</label>
 						<div class="control">
 							<input
 								id="password"
 								class="input"
 								type="password"
 								bind:value={password}
-								placeholder="Enter your password"
+								placeholder="Ange ditt lösenord"
 								disabled={loading}
 								required
 							/>
@@ -130,7 +131,7 @@
 								disabled={loading}
 								class:is-loading={loading}
 							>
-								Sign In
+								Logga in
 							</button>
 						</div>
 					</div>

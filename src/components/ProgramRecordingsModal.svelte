@@ -15,6 +15,7 @@
 	import type { BroadcastProgram, Recording } from "@/api";
 	import { supabase } from "@/api";
 	import { draggable, dropzone, sortable, arrayMove, type DragData } from "@/lib/dndWrapper";
+	import { getSwedishRecordingType, getAllSwedishRecordingTypes } from "@/api/lang";
 
 	export let program: BroadcastProgram | null = null;
 	export let isOpen = false;
@@ -131,7 +132,7 @@
 			if (error) throw error;
 			allRecordings = data || [];
 		} catch (error) {
-			toast.error("Failed to load recordings");
+			toast.error("Kunde inte ladda inspelningar");
 			console.error(error);
 		} finally {
 			loadingRecordings = false;
@@ -161,11 +162,11 @@
 
 			if (error) throw error;
 
-			toast.success("Program recordings updated successfully");
+			toast.success("Programmets inspelningar uppdaterades");
 			dispatch("updated");
 			handleClose();
 		} catch (error) {
-			toast.error("Failed to update program recordings");
+			toast.error("Kunde inte uppdatera programmets inspelningar");
 			console.error(error);
 		} finally {
 			loading = false;
@@ -274,10 +275,10 @@
 		<section class="modal-card-body">
 			{#if program}
 				<div class="mb-4">
-					<h2 class="subtitle is-5 mb-2">{program.title}</h2>
+					<h2 class="subtitle is-5 mb-2">Program: {program.title}</h2>
 					<p class="help">
-						Drag recordings from the left panel to add them to the program. Reorder by dragging
-						within the right panel.
+						Dra inspelningar från den vänstra panelen för att lägga till dem i programmet. Ändra
+						ordning genom att dra inom den högra panelen.
 					</p>
 				</div>
 
@@ -285,7 +286,7 @@
 					<!-- Available Recordings Panel -->
 					<div class="listbox-panel">
 						<div class="panel-header">
-							<h3 class="subtitle is-6 mb-2">Available Recordings</h3>
+							<h3 class="subtitle is-6 mb-2">Tillgängliga inspelningar</h3>
 							<div class="controls">
 								<!-- Search -->
 								<div class="field has-addons mb-2">
@@ -293,7 +294,7 @@
 										<input
 											class="input is-small"
 											type="text"
-											placeholder="Search recordings..."
+											placeholder="Sök inspelningar..."
 											bind:value={searchQuery}
 										/>
 									</div>
@@ -306,7 +307,7 @@
 											<select bind:value={filterType}>
 												{#each recordingTypes as type}
 													<option value={type}>
-														{type === "all" ? "All Types" : type}
+														{type === "all" ? "Alla typer" : getSwedishRecordingType(type)}
 													</option>
 												{/each}
 											</select>
@@ -319,7 +320,7 @@
 												class:is-info={sortBy === "title"}
 												on:click={() => toggleSort("title")}
 											>
-												Title
+												Titel
 												{#if sortBy === "title"}
 													<span class="icon is-small ml-1">
 														<ArrowUpDown size={12} />
@@ -331,7 +332,7 @@
 												class:is-info={sortBy === "edited_at"}
 												on:click={() => toggleSort("edited_at")}
 											>
-												Date
+												Datum
 												{#if sortBy === "edited_at"}
 													<span class="icon is-small ml-1">
 														<ArrowUpDown size={12} />
@@ -343,7 +344,7 @@
 												class:is-info={sortBy === "author"}
 												on:click={() => toggleSort("author")}
 											>
-												Author
+												Artist
 												{#if sortBy === "author"}
 													<span class="icon is-small ml-1">
 														<ArrowUpDown size={12} />
@@ -358,11 +359,11 @@
 
 						{#if loadingRecordings}
 							<div class="notification is-light">
-								<div class="button is-loading is-ghost">Loading recordings...</div>
+								<div class="button is-loading is-ghost">Laddar inspelningar...</div>
 							</div>
 						{:else if filteredAndSortedRecordings.length === 0}
 							<div class="notification is-warning is-light">
-								<p>No recordings match your criteria.</p>
+								<p>Inga inspelningar matchar dina sökkriterier.</p>
 							</div>
 						{:else}
 							<div
@@ -409,7 +410,7 @@
 														recording.type === "other"}
 													class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
 												>
-													{recording.type}
+													{getSwedishRecordingType(recording.type)}
 												</span>
 											{/if}
 										</div>
@@ -417,9 +418,9 @@
 											type="button"
 											class="button is-small is-success is-outlined add-button"
 											on:click|stopPropagation={() => addRecording(recording.id)}
-											title="Add to program"
+											title="Lägg till i program"
 										>
-											Add
+											Lägg till
 										</button>
 									</div>
 								{/each}
@@ -433,7 +434,7 @@
 							<div class="level is-mobile">
 								<div class="level-left">
 									<h3 class="subtitle is-6 mb-0">
-										Program Recordings ({selectedRecordings.length})
+										Valda inspelningar ({selectedRecordings.length})
 									</h3>
 								</div>
 								<div class="level-right">
@@ -445,7 +446,7 @@
 						{#if loadingRecordings}
 							<div class="recording-list selected-list">
 								<div class="notification is-light">
-									<div class="button is-loading is-ghost">Loading program recordings...</div>
+									<div class="button is-loading is-ghost">Laddar programmets inspelningar...</div>
 								</div>
 							</div>
 						{:else if selectedRecordings.length === 0}
@@ -460,7 +461,7 @@
 								}}
 							>
 								<div class="notification is-info is-light">
-									<p>Drag recordings here or click "Add" to build your program.</p>
+									<p>Dra inspelningar hit eller klicka "Lägg till" för att bygga ditt program.</p>
 								</div>
 							</div>
 						{:else}
@@ -489,19 +490,19 @@
 										<div class="recording-content">
 											<span class="has-text-weight-semibold mr-2">{index + 1}.</span>
 											{#if loadingRecordings}
-												<span class="has-text-grey-light">Loading...</span>
+												<span class="has-text-grey-light">Laddar...</span>
 											{:else if !recording}
 												<span class="has-text-danger">
 													<span class="icon is-small">
 														<AlertCircle size={14} />
 													</span>
-													<span>Recording not found</span>
+													<span>Inspelning hittades inte</span>
 												</span>
 												<span class="has-text-grey-light ml-2">
-													(This recording may have been deleted or marked as not OK)
+													(Denna inspelning kan ha tagits bort eller markerats som ej OK)
 												</span>
 											{:else}
-												<strong>{recording.title || "Untitled"}</strong>
+												<strong>{recording.title || "Namnlös"}</strong>
 												{#if recording.author}
 													<span class="has-text-grey"> - {recording.author}</span>
 												{/if}
@@ -516,7 +517,7 @@
 												class="button is-small"
 												on:click={() => moveRecording(index, "up")}
 												disabled={index === 0 || loading}
-												title="Move up"
+												title="Flytta upp"
 											>
 												<span class="icon is-small">
 													<ChevronUp size={14} />
@@ -527,7 +528,7 @@
 												class="button is-small"
 												on:click={() => moveRecording(index, "down")}
 												disabled={index === selectedRecordings.length - 1 || loading}
-												title="Move down"
+												title="Flytta ner"
 											>
 												<span class="icon is-small">
 													<ChevronDown size={14} />
@@ -538,7 +539,7 @@
 												class="button is-small is-danger is-outlined"
 												on:click={() => removeRecording(item.uniqueKey)}
 												disabled={loading}
-												title="Remove from program"
+												title="Ta bort från program"
 											>
 												<span class="icon is-small">
 													<X size={14} />
@@ -560,9 +561,9 @@
 				class:is-loading={loading}
 				disabled={loading}
 			>
-				Save Recordings
+				Spara inspelningar
 			</button>
-			<button class="button" on:click={handleClose} disabled={loading}>Cancel</button>
+			<button class="button" on:click={handleClose} disabled={loading}>Avbryt</button>
 		</footer>
 	</div>
 </div>

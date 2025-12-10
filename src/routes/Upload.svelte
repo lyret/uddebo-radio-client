@@ -18,16 +18,16 @@
 		if (file) {
 			// Check if it's an audio file
 			if (!file.type.startsWith("audio/")) {
-				toast.error("Invalid file type", {
-					description: "Please select an audio file",
+				toast.error("Ogiltig filtyp", {
+					description: "Vänligen välj en ljudfil",
 				});
 				return;
 			}
 
 			// Check file size (limit to 50MB)
 			if (file.size > 50 * 1024 * 1024) {
-				toast.error("File too large", {
-					description: "Please select a file smaller than 50MB",
+				toast.error("Filen är för stor", {
+					description: "Vänligen välj en fil mindre än 50MB",
 				});
 				return;
 			}
@@ -51,8 +51,8 @@
 
 	async function handleUpload() {
 		if (!selectedFile || !title.trim()) {
-			toast.error("Missing information", {
-				description: "Please select a file and provide a title",
+			toast.error("Information saknas", {
+				description: "Vänligen välj en fil och ange en titel",
 			});
 			return;
 		}
@@ -116,8 +116,8 @@
 
 			if (dbError) throw dbError;
 
-			toast.success("Upload successful!", {
-				description: "Your recording has been added to the playlist",
+			toast.success("Uppladdningen lyckades!", {
+				description: "Din inspelning har lagts till i spellistan",
 			});
 
 			// Reset form
@@ -133,8 +133,8 @@
 			}
 		} catch (error) {
 			console.error("Upload error:", error);
-			toast.error("Upload failed", {
-				description: "There was an error uploading your recording",
+			toast.error("Uppladdningen misslyckades", {
+				description: "Ett fel uppstod när din inspelning laddades upp",
 			});
 		} finally {
 			uploading = false;
@@ -152,8 +152,10 @@
 
 <Layout>
 	<div>
-		<h3 class="title is-4 has-text-centered">Upload Recording</h3>
-		<p class="subtitle is-6 has-text-centered mb-5">Add your music to the Uddebo Radio playlist</p>
+		<h3 class="title is-4 has-text-centered">Ladda upp inspelning</h3>
+		<p class="subtitle is-6 has-text-centered mb-5">
+			Lägg till din musik i Uddebo Radios spellista
+		</p>
 
 		<form on:submit|preventDefault={handleUpload}>
 			<!-- File Upload -->
@@ -171,7 +173,7 @@
 							<span class="file-icon">
 								<Upload />
 							</span>
-							<span class="file-label">Choose an audio file...</span>
+							<span class="file-label">Välj en ljudfil...</span>
 						</span>
 					</label>
 				</div>
@@ -196,14 +198,14 @@
 
 			<!-- Title -->
 			<div class="field">
-				<label class="label" for="title">Title *</label>
+				<label class="label" for="title">Titel *</label>
 				<div class="control">
 					<input
 						id="title"
 						class="input"
 						type="text"
 						bind:value={title}
-						placeholder="Enter the song title"
+						placeholder="Ange låttitel"
 						required
 					/>
 				</div>
@@ -211,45 +213,45 @@
 
 			<!-- Artist -->
 			<div class="field">
-				<label class="label" for="author">Author</label>
+				<label class="label" for="author">Artist</label>
 				<div class="control">
 					<input
 						id="author"
 						class="input"
 						type="text"
 						bind:value={author}
-						placeholder="Enter the author name"
+						placeholder="Ange artistnamn"
 					/>
 				</div>
 			</div>
 
 			<!-- Optional Contact Info -->
 			<hr />
-			<h4 class="title is-5">Optional: Contact Information</h4>
-			<p class="subtitle is-6">Help listeners connect with you</p>
+			<h4 class="title is-5">Valfritt: Kontaktinformation</h4>
+			<p class="subtitle is-6">Hjälp lyssnare att kontakta dig</p>
 
 			<div class="field">
-				<label class="label" for="uploader-name">Your Name</label>
+				<label class="label" for="uploader-name">Ditt namn</label>
 				<div class="control">
 					<input
 						id="uploader-name"
 						class="input"
 						type="text"
 						bind:value={uploaderName}
-						placeholder="Enter your name"
+						placeholder="Ange ditt namn"
 					/>
 				</div>
 			</div>
 
 			<div class="field">
-				<label class="label" for="uploader-email">Your Email</label>
+				<label class="label" for="uploader-email">Din e-post</label>
 				<div class="control">
 					<input
 						id="uploader-email"
 						class="input"
 						type="email"
 						bind:value={uploaderEmail}
-						placeholder="Enter your email"
+						placeholder="Ange din e-postadress"
 					/>
 				</div>
 			</div>
@@ -266,7 +268,7 @@
 						<span class="icon">
 							<Upload />
 						</span>
-						<span>Upload Recording</span>
+						<span>Ladda upp inspelning</span>
 					</button>
 				</div>
 			</div>
@@ -274,11 +276,11 @@
 
 		<div class="content has-text-centered mt-5">
 			<small>
-				By uploading, you confirm you have the rights to share this content.
+				Genom att ladda upp bekräftar du att du har rätt att dela detta innehåll.
 				<br />
-				Uploaded files will be publicly accessible on Uddebo Radio.
+				Uppladdade filer kommer att vara offentligt tillgängliga på Uddebo Radio.
 				<br />
-				<strong class="has-text-primary">No account required - anyone can upload!</strong>
+				<strong class="has-text-primary">Inget konto krävs - vem som helst kan ladda upp!</strong>
 			</small>
 		</div>
 	</div>

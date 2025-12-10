@@ -38,8 +38,8 @@
 			if (error) throw error;
 			recordings = data || [];
 		} catch (error) {
-			toast.error("Error loading recordings", {
-				description: "Failed to fetch the playlist",
+			toast.error("Fel vid laddning av inspelningar", {
+				description: "Kunde inte hämta spellistan",
 			});
 		} finally {
 			loading = false;
@@ -123,12 +123,12 @@
 	{#if loading}
 		<div class="has-text-centered p-6">
 			<div class="button is-loading is-large is-ghost"></div>
-			<p class="mt-4">Loading recordings...</p>
+			<p class="mt-4">Laddar inspelningar...</p>
 		</div>
 	{:else if recordings.length === 0}
 		<div class="notification is-warning has-text-centered">
-			<h3 class="title is-5">No recordings available</h3>
-			<p>Upload some recordings to start the radio!</p>
+			<h3 class="title is-5">Inga inspelningar tillgängliga</h3>
+			<p>Ladda upp några inspelningar för att starta radion!</p>
 		</div>
 	{:else}
 		<div>
@@ -144,7 +144,7 @@
 			<!-- Track Info -->
 			<div class="has-text-centered mb-5">
 				<h2 class="title is-4">
-					{currentTrack?.title || "Untitled Recording"}
+					{currentTrack?.title || "Namnlös inspelning"}
 				</h2>
 				{#if currentTrack?.author}
 					<p class="subtitle is-6">{currentTrack.author}</p>
@@ -228,7 +228,7 @@
 			<!-- Playlist Info -->
 			<div class="has-text-centered">
 				<small class="has-text-grey">
-					Track {currentTrackIndex + 1} of {recordings.length}
+					Spår {currentTrackIndex + 1} av {recordings.length}
 				</small>
 			</div>
 		</div>

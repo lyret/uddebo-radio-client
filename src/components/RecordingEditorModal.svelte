@@ -14,6 +14,7 @@
 	import { toast } from "svelte-sonner";
 	import type { Recording, RecordingType, RecordingUpdate } from "@/api";
 	import { supabase } from "@/api";
+	import { getAllSwedishRecordingTypes } from "@/api/lang";
 
 	export let recording: Recording | null = null;
 	export let isOpen = false;
@@ -44,20 +45,8 @@
 	let cover_url = "";
 	let captions_url = "";
 
-	// Recording types
-	const recordingTypes: RecordingType[] = [
-		"unknown",
-		"jingle",
-		"poetry",
-		"music",
-		"news",
-		"commentary",
-		"talk",
-		"comedy",
-		"talkshow",
-		"interview",
-		"other",
-	];
+	// All possible recording types with Swedish labels
+	const recordingTypes = getAllSwedishRecordingTypes();
 
 	// Load form data when modal opens
 	$: if (isOpen && recording) {
@@ -123,11 +112,11 @@
 
 			if (error) throw error;
 
-			toast.success("Recording updated successfully");
+			toast.success("Inspelningen uppdaterades");
 			dispatch("updated", { changedType: recording.type !== type });
 			closeModal();
 		} catch (error) {
-			toast.error("Failed to update recording");
+			toast.error("Kunde inte uppdatera inspelningen");
 			console.error(error);
 		} finally {
 			saving = false;
@@ -140,7 +129,7 @@
 			selectedAudioFile = input.files[0];
 			// Validate file type
 			if (!selectedAudioFile.type.startsWith("audio/")) {
-				toast.error("Please select an audio file");
+				toast.error("Vänligen välj en ljudfil");
 				selectedAudioFile = null;
 				return;
 			}
@@ -153,7 +142,7 @@
 			selectedCoverFile = input.files[0];
 			// Validate file type
 			if (!selectedCoverFile.type.startsWith("image/")) {
-				toast.error("Please select an image file");
+				toast.error("Vänligen välj en bildfil");
 				selectedCoverFile = null;
 				return;
 			}
@@ -172,7 +161,7 @@
 				!validTypes.includes(selectedCaptionsFile.type) &&
 				!["json", "vtt"].includes(fileExt || "")
 			) {
-				toast.error("Please select a JSON or VTT file for captions");
+				toast.error("Vänligen välj en JSON- eller VTT-fil för undertexter");
 				selectedCaptionsFile = null;
 				return;
 			}
@@ -234,12 +223,12 @@
 
 			if (dbError) throw dbError;
 
-			toast.success("Audio file replaced successfully");
+			toast.success("Ljudfilen har ersatts");
 			selectedAudioFile = null;
 			audioFileInput.value = "";
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to upload new audio file");
+			toast.error("Kunde inte ladda upp ny ljudfil");
 			console.error(error);
 		} finally {
 			uploading = false;
@@ -296,12 +285,12 @@
 			// Update local recording object
 			recording.cover_url = urlData.publicUrl;
 
-			toast.success("Cover image uploaded and saved");
+			toast.success("Omslagsbilden har laddats upp och sparats");
 			selectedCoverFile = null;
 			coverFileInput.value = "";
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to upload cover image");
+			toast.error("Kunde inte ladda upp omslagsbilden");
 			console.error(error);
 		} finally {
 			uploadingCover = false;
@@ -360,12 +349,12 @@
 			// Update local recording object
 			recording.captions_url = urlData.publicUrl;
 
-			toast.success("Captions file uploaded and saved");
+			toast.success("Undertextfilen har laddats upp och sparats");
 			selectedCaptionsFile = null;
 			captionsFileInput.value = "";
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to upload captions file");
+			toast.error("Kunde inte ladda upp undertextfilen");
 			console.error(error);
 		} finally {
 			uploadingCaptions = false;
@@ -404,10 +393,10 @@
 			recording.cover_url = null;
 			cover_url = "";
 
-			toast.success("Cover image deleted");
+			toast.success("Omslagsbilden har tagits bort");
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to delete cover image");
+			toast.error("Kunde inte ta bort omslagsbilden");
 			console.error(error);
 		}
 	}
@@ -444,10 +433,10 @@
 			recording.captions_url = null;
 			captions_url = "";
 
-			toast.success("Captions file deleted");
+			toast.success("Undertextfilen har tagits bort");
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to delete captions file");
+			toast.error("Kunde inte ta bort undertextfilen");
 			console.error(error);
 		}
 	}
@@ -480,10 +469,10 @@
 				edited_at: new Date().toISOString(),
 				edited_by: user?.id || null,
 			};
-			toast.success("Recording marked as OK");
+			toast.success("Inspelningen markerad som OK");
 			dispatch("updated", { changedStatus: true, newStatus: "ok" });
 		} catch (error) {
-			toast.error("Failed to mark recording as OK");
+			toast.error("Kunde inte markera inspelningen som OK");
 			console.error(error);
 		}
 	}
@@ -516,10 +505,10 @@
 				edited_at: new Date().toISOString(),
 				edited_by: user?.id || null,
 			};
-			toast.success("Recording marked as not OK");
+			toast.success("Inspelningen markerad som ej OK");
 			dispatch("updated", { changedStatus: true, newStatus: "not_ok" });
 		} catch (error) {
-			toast.error("Failed to mark recording as not OK");
+			toast.error("Kunde inte markera inspelningen som ej OK");
 			console.error(error);
 		}
 	}
@@ -527,7 +516,9 @@
 	async function handleDelete() {
 		if (!recording) return;
 
-		if (!confirm("Are you sure you want to delete this recording? This action cannot be undone."))
+		if (
+			!confirm("Är du säker på att du vill ta bort denna inspelning? Denna åtgärd kan inte ångras.")
+		)
 			return;
 
 		try {
@@ -535,11 +526,11 @@
 
 			if (error) throw error;
 
-			toast.success("Recording deleted successfully");
+			toast.success("Inspelningen har tagits bort");
 			dispatch("deleted");
 			closeModal();
 		} catch (error) {
-			toast.error("Failed to delete recording");
+			toast.error("Kunde inte ta bort inspelningen");
 			console.error(error);
 		}
 	}
@@ -583,7 +574,7 @@
 		<div class="modal-card modal-card-wide">
 			<header class="modal-card-head">
 				<p class="modal-card-title">
-					Edit Recording
+					Redigera inspelning
 					{#if recording}
 						<span class="is-size-6 has-text-grey-light ml-2">ID: {recording.id}</span>
 					{/if}
@@ -596,54 +587,54 @@
 					<div class="columns">
 						<!-- Main form column -->
 						<div class="column is-8">
-							<h3 class="title is-5 mb-4">Recording Details</h3>
+							<h3 class="title is-5 mb-4">Inspelningsdetaljer</h3>
 							<form on:submit|preventDefault={handleSave}>
 								<div class="field">
-									<label class="label" for="modal-title">Title</label>
+									<label class="label" for="modal-title">Titel</label>
 									<div class="control">
 										<input
 											id="modal-title"
 											class="input"
 											type="text"
 											bind:value={title}
-											placeholder="Recording title"
+											placeholder="Inspelningstitel"
 										/>
 									</div>
 								</div>
 
 								<div class="field">
-									<label class="label" for="modal-author">Author</label>
+									<label class="label" for="modal-author">Artist</label>
 									<div class="control">
 										<input
 											id="modal-author"
 											class="input"
 											type="text"
 											bind:value={author}
-											placeholder="Author name"
+											placeholder="Artistnamn"
 										/>
 									</div>
 								</div>
 
 								<div class="field">
-									<label class="label" for="modal-description">Description</label>
+									<label class="label" for="modal-description">Beskrivning</label>
 									<div class="control">
 										<textarea
 											id="modal-description"
 											class="textarea"
 											bind:value={description}
-											placeholder="Detailed description of the recording"
+											placeholder="Detaljerad beskrivning av inspelningen"
 											rows="4"
 										/>
 									</div>
 								</div>
 
 								<div class="field">
-									<label class="label" for="modal-type">Type</label>
+									<label class="label" for="modal-type">Typ</label>
 									<div class="control">
 										<div class="select is-fullwidth">
 											<select id="modal-type" bind:value={type}>
-												{#each recordingTypes as type}
-													<option value={type}>{type}</option>
+												{#each recordingTypes as recordingType}
+													<option value={recordingType.value}>{recordingType.label}</option>
 												{/each}
 											</select>
 										</div>
@@ -651,7 +642,7 @@
 								</div>
 
 								<div class="field">
-									<label class="label" for="modal-link">External Link</label>
+									<label class="label" for="modal-link">Extern länk</label>
 									<div class="control">
 										<input
 											id="modal-link"
@@ -661,14 +652,14 @@
 											placeholder="https://example.com"
 										/>
 									</div>
-									<p class="help">Optional external URL for promotional purposes</p>
+									<p class="help">Valfri extern URL för marknadsföringsändamål</p>
 								</div>
 
 								<hr />
 
 								<!-- Cover Image Upload -->
 								<div class="field">
-									<p class="label">Cover Image</p>
+									<p class="label">Omslagsbild</p>
 									<div class="file has-name is-fullwidth mb-2">
 										<label class="file-label">
 											<input
@@ -682,10 +673,10 @@
 												<span class="file-icon">
 													<Image />
 												</span>
-												<span class="file-label">Choose cover image...</span>
+												<span class="file-label">Välj omslagsbild...</span>
 											</span>
 											<span class="file-name">
-												{selectedCoverFile ? selectedCoverFile.name : "No file selected"}
+												{selectedCoverFile ? selectedCoverFile.name : "Ingen fil vald"}
 											</span>
 										</label>
 									</div>
@@ -696,7 +687,7 @@
 											on:click={uploadCoverImage}
 											disabled={uploadingCover}
 										>
-											{uploadingCover ? "Uploading..." : "Upload Cover"}
+											{uploadingCover ? "Laddar upp..." : "Ladda upp omslag"}
 										</button>
 									{/if}
 									{#if cover_url || recording.cover_url}
@@ -704,7 +695,7 @@
 											<a
 												class="button is-rounded is-outlined is-info is-small"
 												href={cover_url || recording.cover_url}
-												target="_blank">View current cover image</a
+												target="_blank">Visa nuvarande omslagsbild</a
 											>
 											<button
 												class="button is-rounded is-outlined is-danger is-small ml-2"
@@ -714,7 +705,7 @@
 												<span class="icon">
 													<Trash2 size={14} />
 												</span>
-												<span>Delete</span>
+												<span>Ta bort</span>
 											</button>
 										</p>
 									{/if}
@@ -722,7 +713,7 @@
 
 								<!-- Captions File Upload -->
 								<div class="field">
-									<p class="label">Captions File</p>
+									<p class="label">Undertextfil</p>
 									<div class="file has-name is-fullwidth mb-2">
 										<label class="file-label">
 											<input
@@ -736,10 +727,10 @@
 												<span class="file-icon">
 													<FileText />
 												</span>
-												<span class="file-label">Choose captions file...</span>
+												<span class="file-label">Välj undertextfil...</span>
 											</span>
 											<span class="file-name">
-												{selectedCaptionsFile ? selectedCaptionsFile.name : "No file selected"}
+												{selectedCaptionsFile ? selectedCaptionsFile.name : "Ingen fil vald"}
 											</span>
 										</label>
 									</div>
@@ -750,16 +741,16 @@
 											on:click={uploadCaptionsFile}
 											disabled={uploadingCaptions}
 										>
-											{uploadingCaptions ? "Uploading..." : "Upload Captions"}
+											{uploadingCaptions ? "Laddar upp..." : "Ladda upp undertexter"}
 										</button>
 									{/if}
-									<p class="help">Accepts JSON or VTT format</p>
+									<p class="help">Accepterar JSON- eller VTT-format</p>
 									{#if captions_url || recording.captions_url}
 										<p class="help">
 											<a
 												class="button is-rounded is-outlined is-info is-small"
 												href={captions_url || recording.captions_url}
-												target="_blank">View currentcaptions file</a
+												target="_blank">Visa nuvarande undertextfil</a
 											>
 											<button
 												class="button is-danger is-small is-danger is-rounded is-outlined is-info is-small ml-2"
@@ -769,7 +760,7 @@
 												<span class="icon">
 													<Trash2 size={14} />
 												</span>
-												<span>Delete</span>
+												<span>Ta bort</span>
 											</button>
 										</p>
 									{/if}
@@ -777,7 +768,7 @@
 
 								<!-- Replace Audio File -->
 								<div class="field mt-4">
-									<p class="label">Replace Audio File</p>
+									<p class="label">Ersätt ljudfil</p>
 									<div class="file has-name is-fullwidth mb-2">
 										<label class="file-label">
 											<input
@@ -791,10 +782,10 @@
 												<span class="file-icon">
 													<Upload />
 												</span>
-												<span class="file-label">Choose audio file...</span>
+												<span class="file-label">Välj ljudfil...</span>
 											</span>
 											<span class="file-name">
-												{selectedAudioFile ? selectedAudioFile.name : "No file selected"}
+												{selectedAudioFile ? selectedAudioFile.name : "Ingen fil vald"}
 											</span>
 										</label>
 									</div>
@@ -805,10 +796,10 @@
 											on:click={uploadAudioFile}
 											disabled={uploading}
 										>
-											{uploading ? "Uploading..." : "Replace Audio File"}
+											{uploading ? "Laddar upp..." : "Ersätt ljudfil"}
 										</button>
 										<p class="help is-danger mt-1">
-											Warning: This will permanently replace the current audio file
+											Varning: Detta kommer att permanent ersätta den nuvarande ljudfilen
 										</p>
 									{/if}
 								</div>
@@ -818,24 +809,24 @@
 						<!-- Info and status column -->
 						<div class="column is-4">
 							<div class="box">
-								<h4 class="title is-6 mb-3">File Information</h4>
+								<h4 class="title is-6 mb-3">Filinformation</h4>
 								<div class="content is-small">
-									<p><strong>Filename:</strong> {recording.uploaded_filename}</p>
-									<p><strong>Duration:</strong> {formatDuration(recording.duration)}</p>
-									<p><strong>Size:</strong> {formatFileSize(recording.file_size)}</p>
-									<p><strong>Uploaded:</strong> {formatDateTime(recording.uploaded_at)}</p>
+									<p><strong>Filnamn:</strong> {recording.uploaded_filename}</p>
+									<p><strong>Längd:</strong> {formatDuration(recording.duration)}</p>
+									<p><strong>Storlek:</strong> {formatFileSize(recording.file_size)}</p>
+									<p><strong>Uppladdad:</strong> {formatDateTime(recording.uploaded_at)}</p>
 									{#if recording.edited_at && recording.edited_at !== recording.uploaded_at}
-										<p><strong>Last edited:</strong> {formatDateTime(recording.edited_at)}</p>
+										<p><strong>Senast redigerad:</strong> {formatDateTime(recording.edited_at)}</p>
 									{/if}
 									{#if recording.okey_at}
-										<p><strong>Marked OK:</strong> {formatDateTime(recording.okey_at)}</p>
+										<p><strong>Markerad OK:</strong> {formatDateTime(recording.okey_at)}</p>
 									{/if}
 								</div>
 
 								<!-- Cover Image Display -->
 								{#if cover_url || recording.cover_url}
 									<div class="field mt-3">
-										<p class="label is-size-7">Cover Image</p>
+										<p class="label is-size-7">Omslagsbild</p>
 										<figure class="image is-square">
 											<img src={cover_url || recording.cover_url} alt="Recording cover" />
 										</figure>
@@ -844,7 +835,7 @@
 
 								<!-- Audio preview -->
 								<div class="field mt-4">
-									<p class="label is-size-7">Preview</p>
+									<p class="label is-size-7">Förhandsgranska</p>
 									<audio controls src={recording.file_url} class="is-fullwidth" />
 								</div>
 
@@ -859,7 +850,7 @@
 										<span class="icon">
 											<Download />
 										</span>
-										<span>Download Audio</span>
+										<span>Ladda ner ljud</span>
 									</a>
 								</div>
 							</div>
@@ -879,13 +870,15 @@
 											<AlertCircle />
 										</span>
 										<br />
-										<span class="has-text-weight-semibold"> Recording is marked as NOT OK </span>
+										<span class="has-text-weight-semibold">
+											Inspelningen är markerad som EJ OK
+										</span>
 									{:else}
 										<span class="icon">
 											<CheckCircle />
 										</span>
 										<br />
-										<span class="has-text-weight-semibold"> Recording is marked as OK </span>
+										<span class="has-text-weight-semibold"> Inspelningen är markerad som OK </span>
 									{/if}
 								</h4>
 								<div class="field">
@@ -898,22 +891,23 @@
 												<span class="icon">
 													<Check />
 												</span>
-												<span>Mark as OK</span>
+												<span>Markera som OK</span>
 											</button>
 										{:else}
 											<button
 												class="button is-fullwidth is-small is-light is-warning"
 												on:click={markAsNotOK}
 											>
-												<span>Mark as NOT OK</span>
+												<span>Markera som EJ OK</span>
 											</button>
 										{/if}
 									</div>
 									<p class="help">
 										{#if recording.okey_at === null}
-											This recording will not appear in the player or be available for programs
+											Denna inspelning kommer inte att visas i spelaren eller vara tillgänglig för
+											program
 										{:else}
-											This recording is available for playback and can be added to programs
+											Denna inspelning är tillgänglig för uppspelning och kan läggas till i program
 										{/if}
 									</p>
 								</div>
@@ -927,10 +921,10 @@
 											<span class="icon">
 												<Trash2 size={16} />
 											</span>
-											<span>Delete Recording</span>
+											<span>Ta bort inspelning</span>
 										</button>
 										<p class="help">
-											This recording has not been marked as OK and can be permanently deleted.
+											Denna inspelning har inte markerats som OK och kan tas bort permanent.
 										</p>
 									</div>
 								{/if}
@@ -953,11 +947,11 @@
 								<span class="icon">
 									<Save />
 								</span>
-								<span>{saving ? "Saving..." : "Update recording"}</span>
+								<span>{saving ? "Sparar..." : "Uppdatera inspelning"}</span>
 							</button>
 						</div>
 						<div class="level-item">
-							<button class="button" on:click={closeModal} type="button">Cancel</button>
+							<button class="button" on:click={closeModal} type="button">Avbryt</button>
 						</div>
 					</div>
 				</div>

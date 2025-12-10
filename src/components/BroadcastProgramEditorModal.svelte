@@ -47,7 +47,7 @@
 
 	async function handleSubmit() {
 		if (!title.trim() || !startTime) {
-			toast.error("Please fill in all required fields");
+			toast.error("Vänligen fyll i alla obligatoriska fält");
 			return;
 		}
 
@@ -74,7 +74,7 @@
 					.eq("id", program.id);
 
 				if (error) throw error;
-				toast.success("Broadcast program updated successfully");
+				toast.success("Sändningsprogrammet uppdaterat");
 			} else {
 				// Create new program
 				const { error } = await supabase.from("broadcast_programs").insert({
@@ -86,13 +86,13 @@
 				});
 
 				if (error) throw error;
-				toast.success("Broadcast program created successfully");
+				toast.success("Sändningsprogrammet skapat");
 			}
 
 			dispatch("updated");
 			handleClose();
 		} catch (error) {
-			toast.error(program ? "Failed to update program" : "Failed to create program");
+			toast.error(program ? "Kunde inte uppdatera programmet" : "Kunde inte skapa programmet");
 			console.error(error);
 		} finally {
 			loading = false;
@@ -104,7 +104,7 @@
 
 		if (
 			!confirm(
-				"Are you sure you want to delete this broadcast program? This action cannot be undone."
+				"Är du säker på att du vill ta bort detta sändningsprogram? Denna åtgärd kan inte ångras."
 			)
 		)
 			return;
@@ -115,11 +115,11 @@
 
 			if (error) throw error;
 
-			toast.success("Broadcast program deleted successfully");
+			toast.success("Sändningsprogrammet har tagits bort");
 			dispatch("deleted");
 			handleClose();
 		} catch (error) {
-			toast.error("Failed to delete program");
+			toast.error("Kunde inte ta bort programmet");
 			console.error(error);
 		} finally {
 			loading = false;
@@ -138,7 +138,7 @@
 			selectedCoverFile = input.files[0];
 			// Validate file type
 			if (!selectedCoverFile.type.startsWith("image/")) {
-				toast.error("Please select an image file");
+				toast.error("Vänligen välj en bildfil");
 				selectedCoverFile = null;
 				return;
 			}
@@ -195,12 +195,12 @@
 			// Update local program object
 			program.cover_url = urlData.publicUrl;
 
-			toast.success("Cover image uploaded and saved");
+			toast.success("Omslagsbilden har laddats upp och sparats");
 			selectedCoverFile = null;
 			coverFileInput.value = "";
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to upload cover image");
+			toast.error("Kunde inte ladda upp omslagsbilden");
 			console.error(error);
 		} finally {
 			uploadingCover = false;
@@ -239,10 +239,10 @@
 			program.cover_url = null;
 			cover_url = "";
 
-			toast.success("Cover image deleted");
+			toast.success("Omslagsbilden har tagits bort");
 			dispatch("updated");
 		} catch (error) {
-			toast.error("Failed to delete cover image");
+			toast.error("Kunde inte ta bort omslagsbilden");
 			console.error(error);
 		}
 	}
@@ -263,7 +263,7 @@
 				<span class="icon">
 					<Radio />
 				</span>
-				<span>{program ? "Edit" : "Create"} Broadcast Program</span>
+				<span>{program ? "Redigera" : "Skapa"} sändningsprogram</span>
 			</p>
 			<button class="delete" aria-label="close" on:click={handleClose} disabled={loading}></button>
 		</header>
@@ -272,7 +272,7 @@
 				<!-- Title Field -->
 				<div class="field">
 					<label class="label" for="program-title">
-						Title <span class="has-text-danger">*</span>
+						Titel <span class="has-text-danger">*</span>
 					</label>
 					<div class="control has-icons-left">
 						<input
@@ -280,7 +280,7 @@
 							class="input"
 							type="text"
 							bind:value={title}
-							placeholder="Enter program title"
+							placeholder="Ange programtitel"
 							required
 							disabled={loading}
 						/>
@@ -292,13 +292,13 @@
 
 				<!-- Description Field -->
 				<div class="field">
-					<label class="label" for="program-description">Description</label>
+					<label class="label" for="program-description">Beskrivning</label>
 					<div class="control">
 						<textarea
 							id="program-description"
 							class="textarea"
 							bind:value={description}
-							placeholder="Enter program description"
+							placeholder="Ange programbeskrivning"
 							rows="3"
 							disabled={loading}
 						/>
@@ -308,7 +308,7 @@
 				<!-- Start Time Field -->
 				<div class="field">
 					<label class="label" for="program-start-time">
-						Start Time <span class="has-text-danger">*</span>
+						Starttid <span class="has-text-danger">*</span>
 					</label>
 					<div class="control has-icons-left">
 						<input
@@ -323,12 +323,12 @@
 							<Calendar size={16} />
 						</span>
 					</div>
-					<p class="help">The date and time when this program should be broadcast</p>
+					<p class="help">Datum och tid när detta program ska sändas</p>
 				</div>
 
 				<!-- Cover Image Upload -->
 				<div class="field">
-					<p class="label">Cover Image</p>
+					<p class="label">Omslagsbild</p>
 					<div class="file has-name is-fullwidth mb-2">
 						<label class="file-label">
 							<input
@@ -343,10 +343,10 @@
 								<span class="file-icon">
 									<Image size={16} />
 								</span>
-								<span class="file-label">Choose cover image...</span>
+								<span class="file-label">Välj omslagsbild...</span>
 							</span>
 							<span class="file-name">
-								{selectedCoverFile ? selectedCoverFile.name : "No file selected"}
+								{selectedCoverFile ? selectedCoverFile.name : "Ingen fil vald"}
 							</span>
 						</label>
 					</div>
@@ -357,7 +357,7 @@
 							on:click={uploadCoverImage}
 							disabled={uploadingCover || loading}
 						>
-							{uploadingCover ? "Uploading..." : "Upload Cover"}
+							{uploadingCover ? "Laddar upp..." : "Ladda upp omslag"}
 						</button>
 					{/if}
 					{#if cover_url || (program && program.cover_url)}
@@ -365,7 +365,7 @@
 							<a
 								class="button is-info is-small ml-2 is-rounded is-outlined"
 								href={cover_url || program?.cover_url}
-								target="_blank">View current cover image</a
+								target="_blank">Visa nuvarande omslagsbild</a
 							>
 							<button
 								class="button is-danger is-small ml-2 is-rounded is-outlined"
@@ -376,7 +376,7 @@
 								<span class="icon">
 									<Trash2 size={14} />
 								</span>
-								<span>Delete</span>
+								<span>Ta bort</span>
 							</button>
 						</p>
 					{/if}
@@ -394,8 +394,8 @@
 				{#if !program}
 					<div class="notification is-info is-light">
 						<p class="is-size-7">
-							<strong>Note:</strong> New programs are created as inactive. You can activate them after
-							adding recordings.
+							<strong>OBS:</strong> Nya program skapas som inaktiva. Du kan aktivera dem efter att ha
+							lagt till inspelningar.
 						</p>
 					</div>
 				{/if}
@@ -413,7 +413,7 @@
 								<span class="icon">
 									<Trash2 size={16} />
 								</span>
-								<span>Delete Program</span>
+								<span>Ta bort program</span>
 							</button>
 						</div>
 					</div>
@@ -428,11 +428,11 @@
 							class:is-loading={loading}
 							disabled={loading}
 						>
-							{program ? "Update" : "Create"} Program
+							{program ? "Uppdatera" : "Skapa"} program
 						</button>
 					</div>
 					<div class="level-item">
-						<button class="button" on:click={handleClose} disabled={loading}>Cancel</button>
+						<button class="button" on:click={handleClose} disabled={loading}>Avbryt</button>
 					</div>
 				</div>
 			</div>

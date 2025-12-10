@@ -16,6 +16,7 @@
 	import Layout from "@/components/Layout.svelte";
 	import RecordingEditorModal from "@/components/RecordingEditorModal.svelte";
 	import { supabase } from "@/api";
+	import { getSwedishRecordingType } from "@/api/lang";
 
 	let recordings: Recording[] = [];
 	let loading = true;
@@ -27,19 +28,19 @@
 	let filterType: string = "all";
 	let editingRecording: Recording | null = null;
 	let isEditorOpen = false;
-	// All possible recording types
+	// All possible recording types with Swedish labels
 	const recordingTypes = [
-		"unknown",
-		"jingle",
-		"poetry",
-		"music",
-		"news",
-		"commentary",
-		"talk",
-		"comedy",
-		"talkshow",
-		"interview",
-		"other",
+		{ value: "unknown", label: "Okänd" },
+		{ value: "jingle", label: "Jingel" },
+		{ value: "poetry", label: "Poesi" },
+		{ value: "music", label: "Musik" },
+		{ value: "news", label: "Nyheter" },
+		{ value: "commentary", label: "Kommentar" },
+		{ value: "talk", label: "Tal" },
+		{ value: "comedy", label: "Komedi" },
+		{ value: "talkshow", label: "Pratshow" },
+		{ value: "interview", label: "Intervju" },
+		{ value: "other", label: "Övrigt" },
 	];
 
 	onMount(() => {
@@ -70,7 +71,7 @@
 			if (error) throw error;
 			recordings = data || [];
 		} catch (error) {
-			toast.error("Failed to load recordings");
+			toast.error("Kunde inte ladda inspelningar");
 			console.error(error);
 		} finally {
 			loading = false;
@@ -163,7 +164,7 @@
 					<span class="icon">
 						<FileAudio />
 					</span>
-					Recordings Management
+					Hantera inspelningar
 				</h2>
 			</div>
 			<div class="level-right">
@@ -175,26 +176,26 @@
 						<div class="select">
 							<select bind:value={filterStatus} on:change={loadRecordings}>
 								<option value="ok">OK</option>
-								<option value="not_ok">Not OK</option>
-								<option value="all">All</option>
+								<option value="not_ok">Ej OK</option>
+								<option value="all">Alla</option>
 							</select>
 						</div>
 					</div>
 					<div class="control">
-						<span class="button is-static">Type:</span>
+						<span class="button is-static">Typ:</span>
 					</div>
 					<div class="control">
 						<div class="select">
 							<select bind:value={filterType} on:change={loadRecordings}>
-								<option value="all">All Types</option>
+								<option value="all">Alla typer</option>
 								{#each recordingTypes as type}
-									<option value={type}>{type}</option>
+									<option value={type.value}>{type.label}</option>
 								{/each}
 							</select>
 						</div>
 					</div>
 					<div class="control">
-						<span class="button is-static">{recordings.length} recordings</span>
+						<span class="button is-static">{recordings.length} inspelningar</span>
 					</div>
 				</div>
 			</div>
@@ -203,11 +204,11 @@
 		{#if loading}
 			<div class="has-text-centered p-6">
 				<div class="button is-loading is-large is-ghost"></div>
-				<p class="mt-4">Loading recordings...</p>
+				<p class="mt-4">Laddar inspelningar...</p>
 			</div>
 		{:else if recordings.length === 0}
 			<div class="notification is-info is-light">
-				<p>No recordings found. Upload some recordings to get started!</p>
+				<p>Inga inspelningar hittades. Ladda upp några inspelningar för att komma igång!</p>
 			</div>
 		{:else}
 			<div class="table-container">
@@ -215,10 +216,10 @@
 					<thead>
 						<tr>
 							<th>Status</th>
-							<th>Cover</th>
+							<th>Omslag</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("title")}>
-									Title
+									Titel
 									{#if getSortIcon("title")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("title")} size={14} />
@@ -228,7 +229,7 @@
 							</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("author")}>
-									Author
+									Artist
 									{#if getSortIcon("author")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("author")} size={14} />
@@ -238,7 +239,7 @@
 							</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("type")}>
-									Type
+									Typ
 									{#if getSortIcon("type")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("type")} size={14} />
@@ -248,7 +249,7 @@
 							</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("duration")}>
-									Duration
+									Längd
 									{#if getSortIcon("duration")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("duration")} size={14} />
@@ -258,7 +259,7 @@
 							</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
-									Last Edited
+									Senast ändrad
 									{#if getSortIcon("edited_at")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("edited_at")} size={14} />
@@ -276,7 +277,7 @@
 									{#if recording.okey_at}
 										<span class="tag is-success">OK</span>
 									{:else}
-										<span class="tag is-warning">Not OK</span>
+										<span class="tag is-warning">Ej OK</span>
 									{/if}
 								</td>
 								<td>
@@ -294,7 +295,7 @@
 										</figure>
 									{/if}
 								</td>
-								<td>{recording.title || "Untitled"}</td>
+								<td>{recording.title || "Namnlös"}</td>
 								<td>{recording.author || "-"}</td>
 								<td>
 									<span
@@ -309,7 +310,7 @@
 										class:is-light={recording.type === "unknown" || recording.type === "other"}
 										class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
 									>
-										{recording.type}
+										{getSwedishRecordingType(recording.type)}
 									</span>
 								</td>
 								<td>{formatDuration(recording.duration)}</td>
@@ -366,7 +367,7 @@
 										<span class="icon">
 											<Edit2 size={16} />
 										</span>
-										<span>Edit</span>
+										<span>Redigera</span>
 									</button>
 								</td>
 							</tr>

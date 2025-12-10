@@ -47,7 +47,7 @@
 										<span class="icon is-small">
 											<Radio size={16} />
 										</span>
-										<span>Radio Player</span>
+										<span>Radiospelare</span>
 									</a>
 								</li>
 								<li class:is-active={currentPath === "/upload"}>
@@ -55,7 +55,7 @@
 										<span class="icon is-small">
 											<Upload size={16} />
 										</span>
-										<span>Upload</span>
+										<span>Ladda upp</span>
 									</a>
 								</li>
 								<li class:is-active={currentPath === "/account"}>
@@ -63,7 +63,7 @@
 										<span class="icon is-small">
 											<User size={16} />
 										</span>
-										<span>Account</span>
+										<span>Konto</span>
 									</a>
 								</li>
 								<li class:is-active={currentPath === "/programs"}>
@@ -71,7 +71,7 @@
 										<span class="icon is-small">
 											<Calendar size={16} />
 										</span>
-										<span>Programs</span>
+										<span>Program</span>
 									</a>
 								</li>
 								<li class:is-active={currentPath === "/recordings"}>
@@ -79,7 +79,7 @@
 										<span class="icon is-small">
 											<FileAudio size={16} />
 										</span>
-										<span>Recordings</span>
+										<span>Inspelningar</span>
 									</a>
 								</li>
 							</ul>

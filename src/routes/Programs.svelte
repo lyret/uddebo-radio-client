@@ -47,7 +47,7 @@
 			if (error) throw error;
 			programs = data || [];
 		} catch (error) {
-			toast.error("Failed to load broadcast programs");
+			toast.error("Kunde inte ladda sändningsprogram");
 			console.error(error);
 		} finally {
 			loading = false;
@@ -73,7 +73,7 @@
 			if (currentActive) {
 				if (
 					!confirm(
-						`"${currentActive.title}" is currently active. Do you want to deactivate it and activate "${program.title}" instead?`
+						`"${currentActive.title}" är för närvarande aktivt. Vill du inaktivera det och aktivera "${program.title}" istället?`
 					)
 				) {
 					return;
@@ -105,10 +105,10 @@
 
 			if (error) throw error;
 
-			toast.success(`Program "${program.title}" ${isActive ? "activated" : "deactivated"}`);
+			toast.success(`Programmet "${program.title}" ${isActive ? "aktiverat" : "inaktiverat"}`);
 			loadPrograms();
 		} catch (error) {
-			toast.error("Failed to update program status");
+			toast.error("Kunde inte uppdatera programstatus");
 			console.error(error);
 		}
 	}
@@ -178,7 +178,7 @@
 					<span class="icon">
 						<Radio />
 					</span>
-					Broadcast Programs
+					Sändningsprogram
 				</h2>
 			</div>
 			<div class="level-right">
@@ -186,7 +186,7 @@
 					<span class="icon">
 						<Plus size={16} />
 					</span>
-					<span>Create Program</span>
+					<span>Skapa program</span>
 				</button>
 			</div>
 		</div>
@@ -200,13 +200,13 @@
 						</span>
 					</div>
 					<div class="media-content">
-						<p class="title is-5">Multiple Active Programs Detected!</p>
+						<p class="title is-5">Flera aktiva program upptäckta!</p>
 						<p>
-							There are {activePrograms.length} active programs. Only one program should be active at
-							a time. Please deactivate the programs that should not be running.
+							Det finns {activePrograms.length} aktiva program. Endast ett program bör vara aktivt åt
+							gången. Vänligen inaktivera de program som inte ska köras.
 						</p>
 						<p class="mt-2">
-							<strong>Active programs:</strong>
+							<strong>Aktiva program:</strong>
 							{#each activePrograms as program, index}
 								<span>"{program.title}"{index < activePrograms.length - 1 ? ", " : ""}</span>
 							{/each}
@@ -219,22 +219,22 @@
 		{#if loading}
 			<div class="has-text-centered p-6">
 				<div class="button is-loading is-large is-ghost"></div>
-				<p class="mt-4">Loading programs...</p>
+				<p class="mt-4">Laddar program...</p>
 			</div>
 		{:else if programs.length === 0}
 			<div class="notification is-info is-light">
-				<p>No broadcast programs found. Create one to get started!</p>
+				<p>Inga sändningsprogram hittades. Skapa ett för att komma igång!</p>
 			</div>
 		{:else}
 			<div class="table-container">
 				<table class="table is-fullwidth is-striped is-hoverable">
 					<thead>
 						<tr>
-							<th>Active</th>
-							<th>Cover</th>
+							<th>Aktiv</th>
+							<th>Omslag</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("title")}>
-									Title
+									Titel
 									{#if getSortIcon("title")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("title")} size={14} />
@@ -244,7 +244,7 @@
 							</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("start_time")}>
-									Start Time
+									Starttid
 									{#if getSortIcon("start_time")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("start_time")} size={14} />
@@ -252,11 +252,11 @@
 									{/if}
 								</button>
 							</th>
-							<th>Recordings</th>
-							<th>Description</th>
+							<th>Inspelningar</th>
+							<th>Beskrivning</th>
 							<th>
 								<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
-									Last Edited
+									Senast ändrad
 									{#if getSortIcon("edited_at")}
 										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("edited_at")} size={14} />
@@ -264,7 +264,7 @@
 									{/if}
 								</button>
 							</th>
-							<th>Actions</th>
+							<th>Åtgärder</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -313,8 +313,8 @@
 										</span>
 										<span>
 											{getRecordingCount(program) === 0
-												? "No recordings"
-												: `${getRecordingCount(program)} recording${getRecordingCount(program) === 1 ? "" : "s"}`}
+												? "Inga inspelningar"
+												: `${getRecordingCount(program)} inspelning${getRecordingCount(program) === 1 ? "" : "ar"}`}
 										</span>
 									</span>
 								</td>
@@ -337,7 +337,7 @@
 											<span class="icon">
 												<Edit2 size={16} />
 											</span>
-											<span>Edit</span>
+											<span>Redigera</span>
 										</button>
 										<button
 											class="button is-info is-small"
@@ -347,7 +347,7 @@
 											<span class="icon">
 												<Music size={16} />
 											</span>
-											<span>Recordings</span>
+											<span>Inspelningar</span>
 										</button>
 									</div>
 								</td>
