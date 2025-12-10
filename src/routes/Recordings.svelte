@@ -98,15 +98,12 @@
 		return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 	}
 
-	function formatFileSize(bytes: number) {
-		const mb = bytes / (1024 * 1024);
-		return `${mb.toFixed(2)} MB`;
-	}
-
-	function getSortIcon(field: keyof Recording) {
-		if (sortField !== field) return null;
+	$: getSortIcon = (field: keyof Recording) => {
+		if (sortField !== field) {
+			return null;
+		}
 		return sortOrder === "asc" ? ChevronUp : ChevronDown;
-	}
+	};
 
 	function togglePlay(recording: Recording) {
 		if (playingId === recording.id) {
@@ -229,7 +226,7 @@
 									<button class="button is-ghost" on:click={() => sortBy("title")}>
 										Title
 										{#if getSortIcon("title")}
-											<span class="icon is-small">
+											<span class="icon is-small pl-2">
 												<svelte:component this={getSortIcon("title")} size={14} />
 											</span>
 										{/if}
@@ -239,7 +236,7 @@
 									<button class="button is-ghost" on:click={() => sortBy("author")}>
 										Author
 										{#if getSortIcon("author")}
-											<span class="icon is-small">
+											<span class="icon is-small pl-2">
 												<svelte:component this={getSortIcon("author")} size={14} />
 											</span>
 										{/if}
@@ -249,7 +246,7 @@
 									<button class="button is-ghost" on:click={() => sortBy("type")}>
 										Type
 										{#if getSortIcon("type")}
-											<span class="icon is-small">
+											<span class="icon is-small pl-2">
 												<svelte:component this={getSortIcon("type")} size={14} />
 											</span>
 										{/if}
@@ -259,7 +256,7 @@
 									<button class="button is-ghost" on:click={() => sortBy("duration")}>
 										Duration
 										{#if getSortIcon("duration")}
-											<span class="icon is-small">
+											<span class="icon is-small pl-2">
 												<svelte:component this={getSortIcon("duration")} size={14} />
 											</span>
 										{/if}
@@ -269,15 +266,13 @@
 									<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
 										Last Edited
 										{#if getSortIcon("edited_at")}
-											<span class="icon is-small">
+											<span class="icon is-small pl-2">
 												<svelte:component this={getSortIcon("edited_at")} size={14} />
 											</span>
 										{/if}
 									</button>
 								</th>
-								<th>Info</th>
-								<th>Play</th>
-								<th>Actions</th>
+								<th colspan="3" />
 							</tr>
 						</thead>
 						<tbody>
@@ -341,17 +336,15 @@
 												</button>
 											{/if}
 											{#if recording.link_out_url}
-												<a
-													href={recording.link_out_url}
-													target="_blank"
-													rel="noopener noreferrer"
+												<button
 													class="icon-button"
 													title={recording.link_out_url}
+													on:click={() => toast.info(recording.link_out_url, { duration: 5000 })}
 												>
 													<span class="icon">
 														<ExternalLink size={16} />
 													</span>
-												</a>
+												</button>
 											{/if}
 										</div>
 									</td>
@@ -371,18 +364,16 @@
 										</button>
 									</td>
 									<td>
-										<div class="buttons are-small">
-											<button
-												class="button is-primary is-small"
-												title="Edit Recording"
-												on:click={() => openEditor(recording)}
-											>
-												<span class="icon">
-													<Edit2 size={16} />
-												</span>
-												<span>Edit</span>
-											</button>
-										</div>
+										<button
+											class="button is-primary is-small"
+											title="Edit Recording"
+											on:click={() => openEditor(recording)}
+										>
+											<span class="icon">
+												<Edit2 size={16} />
+											</span>
+											<span>Edit</span>
+										</button>
 									</td>
 								</tr>
 							{/each}
@@ -478,9 +469,5 @@
 
 	.icon-button:hover {
 		color: #2366d1;
-	}
-
-	a.icon-button {
-		text-decoration: none;
 	}
 </style>

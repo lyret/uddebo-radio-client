@@ -120,10 +120,12 @@
 		return new Date(dateString).toLocaleString();
 	}
 
-	function getSortIcon(field: keyof BroadcastProgram) {
-		if (sortField !== field) return null;
+	$: getSortIcon = (field: keyof BroadcastProgram) => {
+		if (sortField !== field) {
+			return null;
+		}
 		return sortOrder === "asc" ? ChevronUp : ChevronDown;
-	}
+	};
 
 	function openEditor(program: BroadcastProgram | null) {
 		if (program) {
@@ -236,7 +238,7 @@
 								<button class="button is-ghost" on:click={() => sortBy("title")}>
 									Title
 									{#if getSortIcon("title")}
-										<span class="icon is-small">
+										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("title")} size={14} />
 										</span>
 									{/if}
@@ -246,7 +248,7 @@
 								<button class="button is-ghost" on:click={() => sortBy("start_time")}>
 									Start Time
 									{#if getSortIcon("start_time")}
-										<span class="icon is-small">
+										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("start_time")} size={14} />
 										</span>
 									{/if}
@@ -258,7 +260,7 @@
 								<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
 									Last Edited
 									{#if getSortIcon("edited_at")}
-										<span class="icon is-small">
+										<span class="icon is-small pl-2">
 											<svelte:component this={getSortIcon("edited_at")} size={14} />
 										</span>
 									{/if}
