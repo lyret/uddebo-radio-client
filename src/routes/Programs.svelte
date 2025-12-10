@@ -1,28 +1,40 @@
 <script lang="ts">
-	import { push } from "svelte-spa-router";
 	import { onMount } from "svelte";
-	import { Calendar, Plus, Edit2, Trash2, Radio } from "lucide-svelte";
+	import { push } from "svelte-spa-router";
+	import {
+		Radio,
+		Plus,
+		Edit2,
+		Trash2,
+		Calendar,
+		ChevronUp,
+		ChevronDown,
+		FileAudio,
+		Music,
+		AlertTriangle,
+	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
-	import type { BroadcastProgram, Recording } from "@/api";
+	import type { BroadcastProgram } from "@/api";
 	import Layout from "@/components/Layout.svelte";
+	import BroadcastProgramEditorModal from "@/components/BroadcastProgramEditorModal.svelte";
+	import ProgramRecordingsModal from "@/components/ProgramRecordingsModal.svelte";
 	import { supabase, isAdmin } from "@/api";
 
 	let programs: BroadcastProgram[] = [];
-	let recordings: Recording[] = [];
 	let loading = true;
-	let showCreateForm = false;
+	let sortField: keyof BroadcastProgram = "start_time";
+	let sortOrder: "asc" | "desc" = "asc";
 	let editingProgram: BroadcastProgram | null = null;
+	let isEditorOpen = false;
+	let isCreateMode = false;
+	let managingRecordingsProgram: BroadcastProgram | null = null;
+	let isRecordingsModalOpen = false;
 
-	// Form fields
-	let title = "";
-	let description = "";
-	let startTime = "";
-	let isActive = true;
-	let selectedRecordings: string[] = [];
+	$: activePrograms = programs.filter((p) => p.is_active);
+	$: multipleActivePrograms = activePrograms.length > 1;
 
 	onMount(() => {
 		loadPrograms();
-		loadRecordings();
 	});
 
 	async function loadPrograms() {
@@ -30,7 +42,9 @@
 			const { data, error } = await supabase
 				.from("broadcast_programs")
 				.select("*")
-				.order("start_time", { ascending: true });
+				.order(sortField, {
+					ascending: sortOrder === "asc",
+				});
 
 			if (error) throw error;
 			programs = data || [];
@@ -42,83 +56,79 @@
 		}
 	}
 
-	async function loadRecordings() {
-		try {
-			const { data, error } = await supabase
-				.from("recordings")
-				.select("*")
-				.not("okey_at", "eq", null)
-				.order("edited_at", { ascending: false });
-
-			if (error) throw error;
-			recordings = data || [];
-		} catch (error) {
-			toast.error("Failed to load recordings");
-			console.error(error);
+	function sortBy(field: keyof BroadcastProgram) {
+		if (sortField === field) {
+			sortOrder = sortOrder === "asc" ? "desc" : "asc";
+		} else {
+			sortField = field;
+			sortOrder = "asc";
 		}
+		loadPrograms();
 	}
 
-	async function handleSubmit() {
-		if (!title.trim() || !startTime) {
-			toast.error("Please fill in all required fields");
-			return;
+	async function toggleActiveStatus(program: BroadcastProgram) {
+		const newActiveStatus = !program.is_active;
+
+		// If activating, check if there's already an active program
+		if (newActiveStatus) {
+			const currentActive = programs.find((p) => p.is_active && p.id !== program.id);
+			if (currentActive) {
+				if (
+					!confirm(
+						`"${currentActive.title}" is currently active. Do you want to deactivate it and activate "${program.title}" instead?`
+					)
+				) {
+					return;
+				}
+
+				// Deactivate the current active program
+				await updateProgramActiveStatus(currentActive, false);
+			}
 		}
 
+		// Update the program's active status
+		await updateProgramActiveStatus(program, newActiveStatus);
+	}
+
+	async function updateProgramActiveStatus(program: BroadcastProgram, isActive: boolean) {
 		try {
 			const {
 				data: { user },
 			} = await supabase.auth.getUser();
 
-			const programData = {
-				title: title.trim(),
-				description: description.trim() || null,
-				start_time: new Date(startTime).toISOString(),
-				is_active: isActive,
-				recordings: selectedRecordings,
-				...(editingProgram
-					? {
-							edited_at: new Date().toISOString(),
-							edited_by: user?.id || null,
-						}
-					: {
-							created_at: new Date().toISOString(),
-							created_by: user?.id || null,
-							edited_at: new Date().toISOString(),
-							edited_by: user?.id || null,
-						}),
-			};
+			const { error } = await supabase
+				.from("broadcast_programs")
+				.update({
+					is_active: isActive,
+					edited_at: new Date().toISOString(),
+					edited_by: user?.id || null,
+				})
+				.eq("id", program.id);
 
-			if (editingProgram) {
-				const { error } = await supabase
-					.from("broadcast_programs")
-					.update(programData)
-					.eq("id", editingProgram.id);
+			if (error) throw error;
 
-				if (error) throw error;
-				toast.success("Broadcast program updated successfully");
-			} else {
-				const { error } = await supabase.from("broadcast_programs").insert(programData);
-
-				if (error) throw error;
-				toast.success("Broadcast program created successfully");
-			}
-
-			resetForm();
+			toast.success(`Program "${program.title}" ${isActive ? "activated" : "deactivated"}`);
 			loadPrograms();
 		} catch (error) {
-			toast.error(editingProgram ? "Failed to update program" : "Failed to create program");
+			toast.error("Failed to update program status");
 			console.error(error);
 		}
 	}
 
 	async function deleteProgram(id: string) {
-		if (!confirm("Are you sure you want to delete this broadcast program?")) return;
+		if (
+			!confirm(
+				"Are you sure you want to delete this broadcast program? This action cannot be undone."
+			)
+		)
+			return;
 
 		try {
 			const { error } = await supabase.from("broadcast_programs").delete().eq("id", id);
 
 			if (error) throw error;
-			toast.success("Broadcast program deleted");
+
+			toast.success("Broadcast program deleted successfully");
 			loadPrograms();
 		} catch (error) {
 			toast.error("Failed to delete program");
@@ -126,57 +136,53 @@
 		}
 	}
 
-	function editProgram(program: BroadcastProgram) {
-		editingProgram = program;
-		title = program.title;
-		description = program.description || "";
-		startTime = new Date(program.start_time).toISOString().slice(0, 16);
-		isActive = program.is_active;
-		selectedRecordings = [...program.recordings];
-		showCreateForm = true;
-	}
-
-	function resetForm() {
-		title = "";
-		description = "";
-		startTime = "";
-		isActive = true;
-		selectedRecordings = [];
-		showCreateForm = false;
-		editingProgram = null;
-	}
-
-	function toggleRecording(recordingId: string) {
-		if (selectedRecordings.includes(recordingId)) {
-			selectedRecordings = selectedRecordings.filter((id) => id !== recordingId);
-		} else {
-			selectedRecordings = [...selectedRecordings, recordingId];
-		}
-	}
-
-	function moveRecording(index: number, direction: "up" | "down") {
-		const newRecordings = [...selectedRecordings];
-		if (direction === "up" && index > 0) {
-			[newRecordings[index - 1], newRecordings[index]] = [
-				newRecordings[index],
-				newRecordings[index - 1],
-			];
-		} else if (direction === "down" && index < newRecordings.length - 1) {
-			[newRecordings[index], newRecordings[index + 1]] = [
-				newRecordings[index + 1],
-				newRecordings[index],
-			];
-		}
-		selectedRecordings = newRecordings;
-	}
-
-	function formatDateTime(dateString: string) {
+	function formatDateTime(dateString: string | null) {
+		if (!dateString) return "N/A";
 		return new Date(dateString).toLocaleString();
 	}
 
-	function getRecordingTitle(recordingId: string) {
-		const recording = recordings.find((r) => r.id === recordingId);
-		return recording?.title || "Untitled Recording";
+	function getSortIcon(field: keyof BroadcastProgram) {
+		if (sortField !== field) return null;
+		return sortOrder === "asc" ? ChevronUp : ChevronDown;
+	}
+
+	function openEditor(program: BroadcastProgram | null) {
+		if (program) {
+			editingProgram = program;
+			isCreateMode = false;
+		} else {
+			editingProgram = null;
+			isCreateMode = true;
+		}
+		isEditorOpen = true;
+	}
+
+	function handleEditorClose() {
+		editingProgram = null;
+		isCreateMode = false;
+		isEditorOpen = false;
+	}
+
+	function handleEditorUpdate() {
+		loadPrograms();
+	}
+
+	function openRecordingsModal(program: BroadcastProgram) {
+		managingRecordingsProgram = program;
+		isRecordingsModalOpen = true;
+	}
+
+	function handleRecordingsModalClose() {
+		managingRecordingsProgram = null;
+		isRecordingsModalOpen = false;
+	}
+
+	function handleRecordingsModalUpdate() {
+		loadPrograms();
+	}
+
+	function getRecordingCount(program: BroadcastProgram) {
+		return Array.isArray(program.recordings) ? program.recordings.length : 0;
 	}
 
 	// Redirect to home if not admin
@@ -187,7 +193,7 @@
 
 {#if $isAdmin}
 	<Layout fullWidth={true}>
-		<div class="broadcast-programs">
+		<div class="programs-management">
 			<div class="level">
 				<div class="level-left">
 					<h2 class="title is-4">
@@ -198,11 +204,7 @@
 					</h2>
 				</div>
 				<div class="level-right">
-					<button
-						class="button is-primary"
-						on:click={() => (showCreateForm = !showCreateForm)}
-						disabled={showCreateForm}
-					>
+					<button class="button is-primary" on:click={() => openEditor(null)}>
 						<span class="icon">
 							<Plus size={16} />
 						</span>
@@ -211,219 +213,243 @@
 				</div>
 			</div>
 
-			{#if showCreateForm}
-				<div class="box mb-5">
-					<h3 class="title is-5">{editingProgram ? "Edit" : "Create"} Broadcast Program</h3>
-					<form on:submit|preventDefault={handleSubmit}>
-						<div class="field">
-							<label class="label" for="program-title">Title *</label>
-							<div class="control">
-								<input
-									id="program-title"
-									class="input"
-									type="text"
-									bind:value={title}
-									placeholder="Enter program title"
-									required
-								/>
-							</div>
+			{#if multipleActivePrograms}
+				<div class="notification is-danger">
+					<div class="media">
+						<div class="media-left">
+							<span class="icon is-large">
+								<AlertTriangle size={32} />
+							</span>
 						</div>
-
-						<div class="field">
-							<label class="label" for="program-description">Description</label>
-							<div class="control">
-								<textarea
-									id="program-description"
-									class="textarea"
-									bind:value={description}
-									placeholder="Enter program description"
-									rows="3"
-								/>
-							</div>
+						<div class="media-content">
+							<p class="title is-5">Multiple Active Programs Detected!</p>
+							<p>
+								There are {activePrograms.length} active programs. Only one program should be active at
+								a time. Please deactivate the programs that should not be running.
+							</p>
+							<p class="mt-2">
+								<strong>Active programs:</strong>
+								{#each activePrograms as program, index}
+									<span>"{program.title}"{index < activePrograms.length - 1 ? ", " : ""}</span>
+								{/each}
+							</p>
 						</div>
-
-						<div class="field">
-							<label class="label" for="program-start-time">Start Time *</label>
-							<div class="control">
-								<input
-									id="program-start-time"
-									class="input"
-									type="datetime-local"
-									bind:value={startTime}
-									required
-								/>
-							</div>
-						</div>
-
-						<div class="field">
-							<label class="checkbox">
-								<input type="checkbox" bind:checked={isActive} />
-								Active (will be played at scheduled time)
-							</label>
-						</div>
-
-						<div class="field">
-							<p class="label">Recordings</p>
-							<p class="help mb-3">Select recordings and arrange them in order (optional)</p>
-
-							{#if selectedRecordings.length > 0}
-								<div class="box">
-									<h4 class="subtitle is-6 mb-3">Selected Recordings (in order):</h4>
-									{#each selectedRecordings as recordingId, index}
-										<div class="level is-mobile">
-											<div class="level-left">
-												<span>{index + 1}. {getRecordingTitle(recordingId)}</span>
-											</div>
-											<div class="level-right">
-												<div class="buttons has-addons">
-													<button
-														type="button"
-														class="button is-small"
-														on:click={() => moveRecording(index, "up")}
-														disabled={index === 0}
-													>
-														↑
-													</button>
-													<button
-														type="button"
-														class="button is-small"
-														on:click={() => moveRecording(index, "down")}
-														disabled={index === selectedRecordings.length - 1}
-													>
-														↓
-													</button>
-													<button
-														type="button"
-														class="button is-small is-danger"
-														on:click={() => toggleRecording(recordingId)}
-													>
-														Remove
-													</button>
-												</div>
-											</div>
-										</div>
-									{/each}
-								</div>
-							{/if}
-
-							{#if recordings.length === 0}
-								<div class="notification is-warning is-light">
-									<p>
-										No recordings available. Upload some recordings first to add them to programs.
-									</p>
-								</div>
-							{:else}
-								<div class="recording-selection">
-									{#each recordings as recording}
-										{#if !selectedRecordings.includes(recording.id)}
-											<label class="checkbox is-block mb-2">
-												<input type="checkbox" on:change={() => toggleRecording(recording.id)} />
-												{recording.title || "Untitled"}
-												{#if recording.author}
-													<span class="has-text-grey"> - {recording.author}</span>
-												{/if}
-											</label>
-										{/if}
-									{/each}
-								</div>
-							{/if}
-						</div>
-
-						<div class="field is-grouped">
-							<div class="control">
-								<button type="submit" class="button is-primary">
-									{editingProgram ? "Update" : "Create"} Program
-								</button>
-							</div>
-							<div class="control">
-								<button type="button" class="button is-light" on:click={resetForm}> Cancel </button>
-							</div>
-						</div>
-					</form>
+					</div>
 				</div>
 			{/if}
 
 			{#if loading}
-				<div class="has-text-centered">
-					<span class="icon is-large">
-						<Radio size={48} />
-					</span>
-					<p>Loading programs...</p>
+				<div class="has-text-centered p-6">
+					<div class="button is-loading is-large is-ghost"></div>
+					<p class="mt-4">Loading programs...</p>
 				</div>
 			{:else if programs.length === 0}
 				<div class="notification is-info is-light">
-					<p>No broadcast programs yet. Create one to get started!</p>
+					<p>No broadcast programs found. Create one to get started!</p>
 				</div>
 			{:else}
-				<div class="programs-list">
-					{#each programs as program}
-						<div class="box mb-3">
-							<div class="level is-mobile">
-								<div class="level-left">
-									<div>
-										<h3 class="title is-5 mb-2">{program.title}</h3>
-										{#if program.description}
-											<p class="mb-2">{program.description}</p>
+				<div class="table-container">
+					<table class="table is-fullwidth is-striped is-hoverable">
+						<thead>
+							<tr>
+								<th>Active</th>
+								<th>
+									<button class="button is-ghost" on:click={() => sortBy("title")}>
+										Title
+										{#if getSortIcon("title")}
+											<span class="icon is-small">
+												<svelte:component this={getSortIcon("title")} size={14} />
+											</span>
 										{/if}
-										<div class="tags">
-											<span
-												class="tag"
-												class:is-success={program.is_active}
-												class:is-warning={!program.is_active}
+									</button>
+								</th>
+								<th>
+									<button class="button is-ghost" on:click={() => sortBy("start_time")}>
+										Start Time
+										{#if getSortIcon("start_time")}
+											<span class="icon is-small">
+												<svelte:component this={getSortIcon("start_time")} size={14} />
+											</span>
+										{/if}
+									</button>
+								</th>
+								<th>Recordings</th>
+								<th>Description</th>
+								<th>
+									<button class="button is-ghost" on:click={() => sortBy("created_at")}>
+										Created
+										{#if getSortIcon("created_at")}
+											<span class="icon is-small">
+												<svelte:component this={getSortIcon("created_at")} size={14} />
+											</span>
+										{/if}
+									</button>
+								</th>
+								<th>
+									<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
+										Last Edited
+										{#if getSortIcon("edited_at")}
+											<span class="icon is-small">
+												<svelte:component this={getSortIcon("edited_at")} size={14} />
+											</span>
+										{/if}
+									</button>
+								</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each programs as program (program.id)}
+								<tr>
+									<td>
+										<label class="radio">
+											<input
+												type="radio"
+												name="activeProgram"
+												checked={program.is_active}
+												on:change={() => toggleActiveStatus(program)}
+											/>
+										</label>
+									</td>
+									<td>
+										<strong>{program.title}</strong>
+									</td>
+									<td>
+										<span class="icon-text">
+											<span class="icon">
+												<Calendar size={14} />
+											</span>
+											<span>{formatDateTime(program.start_time)}</span>
+										</span>
+									</td>
+									<td>
+										<span class="icon-text">
+											<span class="icon">
+												<FileAudio size={14} />
+											</span>
+											<span>
+												{getRecordingCount(program) === 0
+													? "No recordings"
+													: `${getRecordingCount(program)} recording${getRecordingCount(program) === 1 ? "" : "s"}`}
+											</span>
+										</span>
+									</td>
+									<td>
+										<small>
+											{program.description?.substring(0, 50) || "-"}
+											{program.description && program.description.length > 50 ? "..." : ""}
+										</small>
+									</td>
+									<td>
+										<small>{formatDateTime(program.created_at)}</small>
+									</td>
+									<td>
+										<small>{formatDateTime(program.edited_at)}</small>
+									</td>
+									<td>
+										<div class="buttons are-small">
+											<button
+												class="button is-primary is-small"
+												title="Edit Program"
+												on:click={() => openEditor(program)}
 											>
-												{program.is_active ? "Active" : "Inactive"}
-											</span>
-											<span class="tag">
-												<span class="icon is-small">
-													<Calendar size={14} />
+												<span class="icon">
+													<Edit2 size={16} />
 												</span>
-												<span>{formatDateTime(program.start_time)}</span>
-											</span>
-											<span class="tag">
-												<span class="icon is-small">
-													<Radio size={14} />
+												<span>Edit</span>
+											</button>
+											<button
+												class="button is-info is-small"
+												title="Manage Recordings"
+												on:click={() => openRecordingsModal(program)}
+											>
+												<span class="icon">
+													<Music size={16} />
 												</span>
-												<span
-													>{program.recordings.length === 0
-														? "No recordings yet"
-														: `${program.recordings.length} recording${program.recordings.length === 1 ? "" : "s"}`}</span
-												>
-											</span>
+												<span>Recordings</span>
+											</button>
+											<button
+												class="button is-danger is-small"
+												on:click={() => deleteProgram(program.id)}
+												title="Delete Program"
+											>
+												<span class="icon">
+													<Trash2 size={16} />
+												</span>
+											</button>
 										</div>
-									</div>
-								</div>
-								<div class="level-right">
-									<div class="buttons">
-										<button class="button is-small is-info" on:click={() => editProgram(program)}>
-											<span class="icon">
-												<Edit2 size={16} />
-											</span>
-										</button>
-										<button
-											class="button is-small is-danger"
-											on:click={() => deleteProgram(program.id)}
-										>
-											<span class="icon">
-												<Trash2 size={16} />
-											</span>
-										</button>
-									</div>
-								</div>
-							</div>
-						</div>
-					{/each}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			{/if}
 		</div>
+
+		<!-- Broadcast Program Editor Modal -->
+		<BroadcastProgramEditorModal
+			program={isCreateMode ? null : editingProgram}
+			bind:isOpen={isEditorOpen}
+			on:close={handleEditorClose}
+			on:updated={handleEditorUpdate}
+		/>
+
+		<!-- Program Recordings Modal -->
+		<ProgramRecordingsModal
+			program={managingRecordingsProgram}
+			bind:isOpen={isRecordingsModalOpen}
+			on:close={handleRecordingsModalClose}
+			on:updated={handleRecordingsModalUpdate}
+		/>
 	</Layout>
 {/if}
 
 <style>
-	.recording-selection {
-		max-height: 300px;
-		overflow-y: auto;
-		padding: 1rem;
-		border: 1px solid #dbdbdb;
-		border-radius: 4px;
+	.table-container {
+		overflow-x: auto;
+	}
+
+	.programs-management {
+		min-height: 500px;
+	}
+
+	th .button.is-ghost {
+		color: inherit;
+		background: none;
+		border: none;
+		text-decoration: none;
+		padding: 0;
+		height: auto;
+		justify-content: flex-start;
+	}
+
+	th .button.is-ghost:hover {
+		color: #3273dc;
+		background: none;
+	}
+
+	.table td {
+		vertical-align: middle;
+	}
+
+	.buttons {
+		margin-bottom: 0;
+	}
+
+	.icon-text {
+		align-items: center;
+		display: inline-flex;
+		justify-content: flex-start;
+		line-height: 1.5;
+	}
+
+	.icon-text > .icon:first-child:not(:last-child) {
+		margin-right: 0.25em;
+		margin-left: 0;
+	}
+
+	.notification.is-danger {
+		margin-bottom: 1.5rem;
 	}
 </style>

@@ -29,34 +29,34 @@
 		<div class="container">
 			<div class="columns is-centered">
 				<div class="column" class:is-10-tablet={!fullWidth} class:is-8-desktop={!fullWidth}>
-					<!-- Navigation Tabs -->
-					<div class="tabs is-centered is-boxed">
-						<ul>
-							<li class:is-active={currentPath === "/"}>
-								<a href="/" use:link>
-									<span class="icon is-small">
-										<Radio size={16} />
-									</span>
-									<span>Radio Player</span>
-								</a>
-							</li>
-							<li class:is-active={currentPath === "/upload"}>
-								<a href="/upload" use:link>
-									<span class="icon is-small">
-										<Upload size={16} />
-									</span>
-									<span>Upload</span>
-								</a>
-							</li>
-							<li class:is-active={currentPath === "/account"}>
-								<a href="/account" use:link>
-									<span class="icon is-small">
-										<User size={16} />
-									</span>
-									<span>Account</span>
-								</a>
-							</li>
-							{#if $isAdmin}
+					<!-- Admin Navigation Tabs -->
+					{#if $isAdmin}
+						<div class="tabs is-centered is-boxed">
+							<ul>
+								<li class:is-active={currentPath === "/"}>
+									<a href="/" use:link>
+										<span class="icon is-small">
+											<Radio size={16} />
+										</span>
+										<span>Radio Player</span>
+									</a>
+								</li>
+								<li class:is-active={currentPath === "/upload"}>
+									<a href="/upload" use:link>
+										<span class="icon is-small">
+											<Upload size={16} />
+										</span>
+										<span>Upload</span>
+									</a>
+								</li>
+								<li class:is-active={currentPath === "/account"}>
+									<a href="/account" use:link>
+										<span class="icon is-small">
+											<User size={16} />
+										</span>
+										<span>Account</span>
+									</a>
+								</li>
 								<li class:is-active={currentPath === "/programs"}>
 									<a href="/programs" use:link>
 										<span class="icon is-small">
@@ -73,9 +73,9 @@
 										<span>Recordings</span>
 									</a>
 								</li>
-							{/if}
-						</ul>
-					</div>
+							</ul>
+						</div>
+					{/if}
 
 					<!-- Tab Content -->
 					<div class="box">
