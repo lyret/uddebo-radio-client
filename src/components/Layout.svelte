@@ -2,6 +2,7 @@
 	import { Radio, Upload, User, Calendar, FileAudio } from "lucide-svelte";
 	import { link, location } from "svelte-spa-router";
 	import { isAdmin } from "@/api";
+	import { slide, blur } from "svelte/transition";
 
 	export let fullWidth = false;
 
@@ -9,20 +10,27 @@
 </script>
 
 <div class="container is-fluid">
-	<!-- Header -->
-	<section class="hero is-primary">
-		<div class="hero-body">
-			<div class="container">
-				<h1 class="title">
-					<span class="icon">
-						<Radio size={32} />
-					</span>
-					Uddebo Radio
-				</h1>
-				<p class="subtitle">Community-driven radio streaming - Everyone can upload!</p>
+	<!-- Header for admins -->
+	{#if $isAdmin}
+		<section class="header" transition:blur>
+			<div class="mt-6" />
+			<div class="level">
+				<div class="level-left">
+					<div class="level-item">
+						<img
+							class="image"
+							src="/logo.png"
+							alt="UR Logo"
+							style="max-height: 80px; width: auto;"
+						/>
+					</div>
+					<div class="level-item">
+						<h1 class="title">Uddebo&nbsp;Radio&nbsp;Administration</h1>
+					</div>
+				</div>
 			</div>
-		</div>
-	</section>
+		</section>
+	{/if}
 
 	<!-- Main Content -->
 	<section class="section">
@@ -31,7 +39,7 @@
 				<div class="column" class:is-10-tablet={!fullWidth} class:is-8-desktop={!fullWidth}>
 					<!-- Admin Navigation Tabs -->
 					{#if $isAdmin}
-						<div class="tabs is-centered is-boxed">
+						<div class="tabs is-centered is-boxed" transition:slide>
 							<ul>
 								<li class:is-active={currentPath === "/"}>
 									<a href="/" use:link>
@@ -78,18 +86,9 @@
 					{/if}
 
 					<!-- Tab Content -->
-					<div class="box">
-						<slot />
-					</div>
+					<slot />
 				</div>
 			</div>
 		</div>
 	</section>
-
-	<!-- Footer -->
-	<footer class="footer">
-		<div class="content has-text-centered">
-			<p>© 2024 Uddebo Radio - Sharing music, connecting communities</p>
-		</div>
-	</footer>
 </div>
