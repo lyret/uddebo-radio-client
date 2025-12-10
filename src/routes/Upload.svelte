@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Upload, Music } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
+	import Layout from "@/components/Layout.svelte";
 	import { supabase } from "@/api";
 
 	let uploading = false;
@@ -149,134 +150,136 @@
 	}
 </script>
 
-<div>
-	<h3 class="title is-4 has-text-centered">Upload Recording</h3>
-	<p class="subtitle is-6 has-text-centered mb-5">Add your music to the Uddebo Radio playlist</p>
+<Layout>
+	<div>
+		<h3 class="title is-4 has-text-centered">Upload Recording</h3>
+		<p class="subtitle is-6 has-text-centered mb-5">Add your music to the Uddebo Radio playlist</p>
 
-	<form on:submit|preventDefault={handleUpload}>
-		<!-- File Upload -->
-		<div class="field">
-			<div class="file is-boxed is-centered">
-				<label class="file-label">
-					<input
-						bind:this={fileInput}
-						class="file-input"
-						type="file"
-						accept="audio/*"
-						on:change={handleFileSelect}
-					/>
-					<span class="file-cta">
-						<span class="file-icon">
-							<Upload />
-						</span>
-						<span class="file-label">Choose an audio file...</span>
-					</span>
-				</label>
-			</div>
-			{#if selectedFile}
-				<div class="notification is-light mt-3">
-					<button type="button" class="delete" on:click={removeFile}></button>
-					<div class="media">
-						<div class="media-left">
-							<span class="icon has-text-primary">
-								<Music size={24} />
+		<form on:submit|preventDefault={handleUpload}>
+			<!-- File Upload -->
+			<div class="field">
+				<div class="file is-boxed is-centered">
+					<label class="file-label">
+						<input
+							bind:this={fileInput}
+							class="file-input"
+							type="file"
+							accept="audio/*"
+							on:change={handleFileSelect}
+						/>
+						<span class="file-cta">
+							<span class="file-icon">
+								<Upload />
 							</span>
-						</div>
-						<div class="media-content">
-							<strong>{selectedFile.name}</strong>
-							<br />
-							<small>{formatFileSize(selectedFile.size)}</small>
+							<span class="file-label">Choose an audio file...</span>
+						</span>
+					</label>
+				</div>
+				{#if selectedFile}
+					<div class="notification is-light mt-3">
+						<button type="button" class="delete" on:click={removeFile}></button>
+						<div class="media">
+							<div class="media-left">
+								<span class="icon has-text-primary">
+									<Music size={24} />
+								</span>
+							</div>
+							<div class="media-content">
+								<strong>{selectedFile.name}</strong>
+								<br />
+								<small>{formatFileSize(selectedFile.size)}</small>
+							</div>
 						</div>
 					</div>
+				{/if}
+			</div>
+
+			<!-- Title -->
+			<div class="field">
+				<label class="label" for="title">Title *</label>
+				<div class="control">
+					<input
+						id="title"
+						class="input"
+						type="text"
+						bind:value={title}
+						placeholder="Enter the song title"
+						required
+					/>
 				</div>
-			{/if}
-		</div>
-
-		<!-- Title -->
-		<div class="field">
-			<label class="label" for="title">Title *</label>
-			<div class="control">
-				<input
-					id="title"
-					class="input"
-					type="text"
-					bind:value={title}
-					placeholder="Enter the song title"
-					required
-				/>
 			</div>
-		</div>
 
-		<!-- Artist -->
-		<div class="field">
-			<label class="label" for="author">Author</label>
-			<div class="control">
-				<input
-					id="author"
-					class="input"
-					type="text"
-					bind:value={author}
-					placeholder="Enter the author name"
-				/>
+			<!-- Artist -->
+			<div class="field">
+				<label class="label" for="author">Author</label>
+				<div class="control">
+					<input
+						id="author"
+						class="input"
+						type="text"
+						bind:value={author}
+						placeholder="Enter the author name"
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- Optional Contact Info -->
-		<hr />
-		<h4 class="title is-5">Optional: Contact Information</h4>
-		<p class="subtitle is-6">Help listeners connect with you</p>
+			<!-- Optional Contact Info -->
+			<hr />
+			<h4 class="title is-5">Optional: Contact Information</h4>
+			<p class="subtitle is-6">Help listeners connect with you</p>
 
-		<div class="field">
-			<label class="label" for="uploader-name">Your Name</label>
-			<div class="control">
-				<input
-					id="uploader-name"
-					class="input"
-					type="text"
-					bind:value={uploaderName}
-					placeholder="Enter your name"
-				/>
+			<div class="field">
+				<label class="label" for="uploader-name">Your Name</label>
+				<div class="control">
+					<input
+						id="uploader-name"
+						class="input"
+						type="text"
+						bind:value={uploaderName}
+						placeholder="Enter your name"
+					/>
+				</div>
 			</div>
-		</div>
 
-		<div class="field">
-			<label class="label" for="uploader-email">Your Email</label>
-			<div class="control">
-				<input
-					id="uploader-email"
-					class="input"
-					type="email"
-					bind:value={uploaderEmail}
-					placeholder="Enter your email"
-				/>
+			<div class="field">
+				<label class="label" for="uploader-email">Your Email</label>
+				<div class="control">
+					<input
+						id="uploader-email"
+						class="input"
+						type="email"
+						bind:value={uploaderEmail}
+						placeholder="Enter your email"
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- Upload Button -->
-		<div class="field mt-5">
-			<div class="control">
-				<button
-					type="submit"
-					class="button is-primary is-fullwidth"
-					disabled={!selectedFile || !title.trim() || uploading}
-					class:is-loading={uploading}
-				>
-					<span class="icon">
-						<Upload />
-					</span>
-					<span>Upload Recording</span>
-				</button>
+			<!-- Upload Button -->
+			<div class="field mt-5">
+				<div class="control">
+					<button
+						type="submit"
+						class="button is-primary is-fullwidth"
+						disabled={!selectedFile || !title.trim() || uploading}
+						class:is-loading={uploading}
+					>
+						<span class="icon">
+							<Upload />
+						</span>
+						<span>Upload Recording</span>
+					</button>
+				</div>
 			</div>
-		</div>
-	</form>
+		</form>
 
-	<div class="content has-text-centered mt-5">
-		<small>
-			By uploading, you confirm you have the rights to share this content.
-			<br />
-			Uploaded files will be publicly accessible on Uddebo Radio.
-			<br />
-			<strong class="has-text-primary">No account required - anyone can upload!</strong>
-		</small>
+		<div class="content has-text-centered mt-5">
+			<small>
+				By uploading, you confirm you have the rights to share this content.
+				<br />
+				Uploaded files will be publicly accessible on Uddebo Radio.
+				<br />
+				<strong class="has-text-primary">No account required - anyone can upload!</strong>
+			</small>
+		</div>
 	</div>
-</div>
+</Layout>
