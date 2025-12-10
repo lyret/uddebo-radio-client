@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { X, Radio, Calendar, Info } from "lucide-svelte";
+	import { X, Radio, Calendar, Info, Trash2 } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { BroadcastProgram } from "@/api";
 	import { supabase } from "@/api";
@@ -82,6 +82,33 @@
 			handleClose();
 		} catch (error) {
 			toast.error(program ? "Failed to update program" : "Failed to create program");
+			console.error(error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function handleDelete() {
+		if (!program) return;
+
+		if (
+			!confirm(
+				"Are you sure you want to delete this broadcast program? This action cannot be undone."
+			)
+		)
+			return;
+
+		loading = true;
+		try {
+			const { error } = await supabase.from("broadcast_programs").delete().eq("id", program.id);
+
+			if (error) throw error;
+
+			toast.success("Broadcast program deleted successfully");
+			dispatch("deleted");
+			handleClose();
+		} catch (error) {
+			toast.error("Failed to delete program");
 			console.error(error);
 		} finally {
 			loading = false;
@@ -193,6 +220,14 @@
 			>
 				{program ? "Update" : "Create"} Program
 			</button>
+			{#if program}
+				<button class="button is-danger is-outlined" on:click={handleDelete} disabled={loading}>
+					<span class="icon">
+						<Trash2 size={16} />
+					</span>
+					<span>Delete Program</span>
+				</button>
+			{/if}
 			<button class="button" on:click={handleClose} disabled={loading}>Cancel</button>
 		</footer>
 	</div>

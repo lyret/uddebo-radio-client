@@ -14,6 +14,9 @@
 		"check": "svelte-check --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
+		"@dnd-kit/core": "^6.3.1",
+		"@dnd-kit/sortable": "^10.0.0",
+		"@dnd-kit/utilities": "^3.2.2",
 		"@supabase/supabase-js": "^2.57.0",
 		"@tanstack/svelte-query": "^5.83.0",
 		"bulma": "^0.9.4",

@@ -115,27 +115,6 @@
 		}
 	}
 
-	async function deleteProgram(id: string) {
-		if (
-			!confirm(
-				"Are you sure you want to delete this broadcast program? This action cannot be undone."
-			)
-		)
-			return;
-
-		try {
-			const { error } = await supabase.from("broadcast_programs").delete().eq("id", id);
-
-			if (error) throw error;
-
-			toast.success("Broadcast program deleted successfully");
-			loadPrograms();
-		} catch (error) {
-			toast.error("Failed to delete program");
-			console.error(error);
-		}
-	}
-
 	function formatDateTime(dateString: string | null) {
 		if (!dateString) return "N/A";
 		return new Date(dateString).toLocaleString();
@@ -165,6 +144,11 @@
 
 	function handleEditorUpdate() {
 		loadPrograms();
+	}
+
+	function handleEditorDelete() {
+		loadPrograms();
+		handleEditorClose();
 	}
 
 	function openRecordingsModal(program: BroadcastProgram) {
@@ -368,15 +352,6 @@
 												</span>
 												<span>Recordings</span>
 											</button>
-											<button
-												class="button is-danger is-small"
-												on:click={() => deleteProgram(program.id)}
-												title="Delete Program"
-											>
-												<span class="icon">
-													<Trash2 size={16} />
-												</span>
-											</button>
 										</div>
 									</td>
 								</tr>
@@ -393,6 +368,7 @@
 			bind:isOpen={isEditorOpen}
 			on:close={handleEditorClose}
 			on:updated={handleEditorUpdate}
+			on:deleted={handleEditorDelete}
 		/>
 
 		<!-- Program Recordings Modal -->

@@ -15,11 +15,14 @@
 	let playingId: string | null = null;
 	let audioElement: HTMLAudioElement;
 	let filterStatus: "ok" | "not_ok" | "all" = "ok";
+	let filterType: string = "all";
 	let editingRecording: Recording | null = null;
 	let isEditorOpen = false;
+	let availableTypes: string[] = [];
 
 	onMount(() => {
 		loadRecordings();
+		loadAvailableTypes();
 	});
 
 	async function loadRecordings() {
@@ -33,6 +36,11 @@
 				query = query.is("okey_at", null);
 			}
 			// 'all' shows everything without filter
+
+			// Apply type filter
+			if (filterType !== "all") {
+				query = query.eq("type", filterType);
+			}
 
 			const { data, error } = await query.order(sortField, {
 				ascending: sortOrder === "asc",
@@ -125,6 +133,24 @@
 		loadRecordings();
 	}
 
+	async function loadAvailableTypes() {
+		try {
+			// Get all unique recording types from the database
+			const { data, error } = await supabase
+				.from("recordings")
+				.select("type")
+				.not("type", "is", null);
+
+			if (error) throw error;
+
+			// Extract unique types
+			const types = Array.from(new Set(data?.map((r) => r.type).filter(Boolean) || []));
+			availableTypes = types.sort();
+		} catch (error) {
+			console.error("Failed to load recording types:", error);
+		}
+	}
+
 	// Redirect to home if not admin
 	$: if (!$isAdmin) {
 		push("/");
@@ -146,7 +172,7 @@
 				<div class="level-right">
 					<div class="field has-addons">
 						<div class="control">
-							<span class="button is-static">Show:</span>
+							<span class="button is-static">Status:</span>
 						</div>
 						<div class="control">
 							<div class="select">
@@ -154,6 +180,19 @@
 									<option value="ok">OK</option>
 									<option value="not_ok">Not OK</option>
 									<option value="all">All</option>
+								</select>
+							</div>
+						</div>
+						<div class="control">
+							<span class="button is-static">Type:</span>
+						</div>
+						<div class="control">
+							<div class="select">
+								<select bind:value={filterType} on:change={loadRecordings}>
+									<option value="all">All Types</option>
+									{#each availableTypes as type}
+										<option value={type}>{type}</option>
+									{/each}
 								</select>
 							</div>
 						</div>
