@@ -168,218 +168,214 @@
 	function getRecordingCount(program: BroadcastProgram) {
 		return Array.isArray(program.recordings) ? program.recordings.length : 0;
 	}
-
-	// Redirect to home if not admin
-	$: if (!$isAdmin) {
-		push("/");
-	}
 </script>
 
-{#if $isAdmin}
-	<Layout fullWidth={true}>
-		<div class="programs-management">
-			<div class="level">
-				<div class="level-left">
-					<h2 class="title is-4">
-						<span class="icon">
-							<Radio />
-						</span>
-						Broadcast Programs
-					</h2>
-				</div>
-				<div class="level-right">
-					<button class="button is-primary" on:click={() => openEditor(null)}>
-						<span class="icon">
-							<Plus size={16} />
-						</span>
-						<span>Create Program</span>
-					</button>
-				</div>
+<Layout fullWidth={true} requiresAdmin={true}>
+	<div class="programs-management">
+		<div class="level">
+			<div class="level-left">
+				<h2 class="title is-4">
+					<span class="icon">
+						<Radio />
+					</span>
+					Broadcast Programs
+				</h2>
 			</div>
-
-			{#if multipleActivePrograms}
-				<div class="notification is-danger">
-					<div class="media">
-						<div class="media-left">
-							<span class="icon is-large">
-								<AlertTriangle size={32} />
-							</span>
-						</div>
-						<div class="media-content">
-							<p class="title is-5">Multiple Active Programs Detected!</p>
-							<p>
-								There are {activePrograms.length} active programs. Only one program should be active at
-								a time. Please deactivate the programs that should not be running.
-							</p>
-							<p class="mt-2">
-								<strong>Active programs:</strong>
-								{#each activePrograms as program, index}
-									<span>"{program.title}"{index < activePrograms.length - 1 ? ", " : ""}</span>
-								{/each}
-							</p>
-						</div>
-					</div>
-				</div>
-			{/if}
-
-			{#if loading}
-				<div class="has-text-centered p-6">
-					<div class="button is-loading is-large is-ghost"></div>
-					<p class="mt-4">Loading programs...</p>
-				</div>
-			{:else if programs.length === 0}
-				<div class="notification is-info is-light">
-					<p>No broadcast programs found. Create one to get started!</p>
-				</div>
-			{:else}
-				<div class="table-container">
-					<table class="table is-fullwidth is-striped is-hoverable">
-						<thead>
-							<tr>
-								<th>Active</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("title")}>
-										Title
-										{#if getSortIcon("title")}
-											<span class="icon is-small">
-												<svelte:component this={getSortIcon("title")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("start_time")}>
-										Start Time
-										{#if getSortIcon("start_time")}
-											<span class="icon is-small">
-												<svelte:component this={getSortIcon("start_time")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>Recordings</th>
-								<th>Description</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("created_at")}>
-										Created
-										{#if getSortIcon("created_at")}
-											<span class="icon is-small">
-												<svelte:component this={getSortIcon("created_at")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
-										Last Edited
-										{#if getSortIcon("edited_at")}
-											<span class="icon is-small">
-												<svelte:component this={getSortIcon("edited_at")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each programs as program (program.id)}
-								<tr>
-									<td>
-										<label class="radio">
-											<input
-												type="radio"
-												name="activeProgram"
-												checked={program.is_active}
-												on:change={() => toggleActiveStatus(program)}
-											/>
-										</label>
-									</td>
-									<td>
-										<strong>{program.title}</strong>
-									</td>
-									<td>
-										<span class="icon-text">
-											<span class="icon">
-												<Calendar size={14} />
-											</span>
-											<span>{formatDateTime(program.start_time)}</span>
-										</span>
-									</td>
-									<td>
-										<span class="icon-text">
-											<span class="icon">
-												<FileAudio size={14} />
-											</span>
-											<span>
-												{getRecordingCount(program) === 0
-													? "No recordings"
-													: `${getRecordingCount(program)} recording${getRecordingCount(program) === 1 ? "" : "s"}`}
-											</span>
-										</span>
-									</td>
-									<td>
-										<small>
-											{program.description?.substring(0, 50) || "-"}
-											{program.description && program.description.length > 50 ? "..." : ""}
-										</small>
-									</td>
-									<td>
-										<small>{formatDateTime(program.created_at)}</small>
-									</td>
-									<td>
-										<small>{formatDateTime(program.edited_at)}</small>
-									</td>
-									<td>
-										<div class="buttons are-small">
-											<button
-												class="button is-primary is-small"
-												title="Edit Program"
-												on:click={() => openEditor(program)}
-											>
-												<span class="icon">
-													<Edit2 size={16} />
-												</span>
-												<span>Edit</span>
-											</button>
-											<button
-												class="button is-info is-small"
-												title="Manage Recordings"
-												on:click={() => openRecordingsModal(program)}
-											>
-												<span class="icon">
-													<Music size={16} />
-												</span>
-												<span>Recordings</span>
-											</button>
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
+			<div class="level-right">
+				<button class="button is-primary" on:click={() => openEditor(null)}>
+					<span class="icon">
+						<Plus size={16} />
+					</span>
+					<span>Create Program</span>
+				</button>
+			</div>
 		</div>
 
-		<!-- Broadcast Program Editor Modal -->
-		<BroadcastProgramEditorModal
-			program={isCreateMode ? null : editingProgram}
-			bind:isOpen={isEditorOpen}
-			on:close={handleEditorClose}
-			on:updated={handleEditorUpdate}
-			on:deleted={handleEditorDelete}
-		/>
+		{#if multipleActivePrograms}
+			<div class="notification is-danger">
+				<div class="media">
+					<div class="media-left">
+						<span class="icon is-large">
+							<AlertTriangle size={32} />
+						</span>
+					</div>
+					<div class="media-content">
+						<p class="title is-5">Multiple Active Programs Detected!</p>
+						<p>
+							There are {activePrograms.length} active programs. Only one program should be active at
+							a time. Please deactivate the programs that should not be running.
+						</p>
+						<p class="mt-2">
+							<strong>Active programs:</strong>
+							{#each activePrograms as program, index}
+								<span>"{program.title}"{index < activePrograms.length - 1 ? ", " : ""}</span>
+							{/each}
+						</p>
+					</div>
+				</div>
+			</div>
+		{/if}
 
-		<!-- Program Recordings Modal -->
-		<ProgramRecordingsModal
-			program={managingRecordingsProgram}
-			bind:isOpen={isRecordingsModalOpen}
-			on:close={handleRecordingsModalClose}
-			on:updated={handleRecordingsModalUpdate}
-		/>
-	</Layout>
-{/if}
+		{#if loading}
+			<div class="has-text-centered p-6">
+				<div class="button is-loading is-large is-ghost"></div>
+				<p class="mt-4">Loading programs...</p>
+			</div>
+		{:else if programs.length === 0}
+			<div class="notification is-info is-light">
+				<p>No broadcast programs found. Create one to get started!</p>
+			</div>
+		{:else}
+			<div class="table-container">
+				<table class="table is-fullwidth is-striped is-hoverable">
+					<thead>
+						<tr>
+							<th>Active</th>
+							<th>Cover</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("title")}>
+									Title
+									{#if getSortIcon("title")}
+										<span class="icon is-small">
+											<svelte:component this={getSortIcon("title")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("start_time")}>
+									Start Time
+									{#if getSortIcon("start_time")}
+										<span class="icon is-small">
+											<svelte:component this={getSortIcon("start_time")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>Recordings</th>
+							<th>Description</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
+									Last Edited
+									{#if getSortIcon("edited_at")}
+										<span class="icon is-small">
+											<svelte:component this={getSortIcon("edited_at")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each programs as program (program.id)}
+							<tr>
+								<td>
+									<label class="radio">
+										<input
+											type="radio"
+											name="activeProgram"
+											checked={program.is_active}
+											on:change={() => toggleActiveStatus(program)}
+										/>
+									</label>
+								</td>
+								<td>
+									{#if program.cover_url}
+										<figure class="image is-48x48">
+											<img src={program.cover_url} alt="{program.title} cover" />
+										</figure>
+									{:else}
+										<figure class="image is-48x48">
+											<div class="placeholder-cover">
+												<span class="icon">
+													<Radio size={24} />
+												</span>
+											</div>
+										</figure>
+									{/if}
+								</td>
+								<td>
+									<strong>{program.title}</strong>
+								</td>
+								<td>
+									<span class="icon-text">
+										<span class="icon">
+											<Calendar size={14} />
+										</span>
+										<span>{formatDateTime(program.start_time)}</span>
+									</span>
+								</td>
+								<td>
+									<span class="icon-text">
+										<span class="icon">
+											<FileAudio size={14} />
+										</span>
+										<span>
+											{getRecordingCount(program) === 0
+												? "No recordings"
+												: `${getRecordingCount(program)} recording${getRecordingCount(program) === 1 ? "" : "s"}`}
+										</span>
+									</span>
+								</td>
+								<td>
+									<small>
+										{program.description?.substring(0, 50) || "-"}
+										{program.description && program.description.length > 50 ? "..." : ""}
+									</small>
+								</td>
+								<td>
+									<small>{formatDateTime(program.edited_at)}</small>
+								</td>
+								<td>
+									<div class="buttons are-small">
+										<button
+											class="button is-primary is-small"
+											title="Edit Program"
+											on:click={() => openEditor(program)}
+										>
+											<span class="icon">
+												<Edit2 size={16} />
+											</span>
+											<span>Edit</span>
+										</button>
+										<button
+											class="button is-info is-small"
+											title="Manage Recordings"
+											on:click={() => openRecordingsModal(program)}
+										>
+											<span class="icon">
+												<Music size={16} />
+											</span>
+											<span>Recordings</span>
+										</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Broadcast Program Editor Modal -->
+	<BroadcastProgramEditorModal
+		program={isCreateMode ? null : editingProgram}
+		bind:isOpen={isEditorOpen}
+		on:close={handleEditorClose}
+		on:updated={handleEditorUpdate}
+		on:deleted={handleEditorDelete}
+	/>
+
+	<!-- Program Recordings Modal -->
+	<ProgramRecordingsModal
+		program={managingRecordingsProgram}
+		bind:isOpen={isRecordingsModalOpen}
+		on:close={handleRecordingsModalClose}
+		on:updated={handleRecordingsModalUpdate}
+	/>
+</Layout>
 
 <style>
 	.table-container {
@@ -427,5 +423,28 @@
 
 	.notification.is-danger {
 		margin-bottom: 1.5rem;
+	}
+
+	.image.is-48x48 {
+		width: 48px;
+		height: 48px;
+		overflow: hidden;
+		border-radius: 4px;
+	}
+
+	.image.is-48x48 img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.placeholder-cover {
+		width: 100%;
+		height: 100%;
+		background-color: #f5f5f5;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #b5b5b5;
 	}
 </style>

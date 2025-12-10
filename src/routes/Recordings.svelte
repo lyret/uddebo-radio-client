@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { push } from "svelte-spa-router";
-	import { Edit2, ChevronUp, ChevronDown, FileAudio, Play, Pause } from "lucide-svelte";
+	import {
+		Edit2,
+		ChevronUp,
+		ChevronDown,
+		FileAudio,
+		Play,
+		Pause,
+		Info,
+		ExternalLink,
+	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { Recording } from "@/api";
 	import Layout from "@/components/Layout.svelte";
@@ -10,7 +19,7 @@
 
 	let recordings: Recording[] = [];
 	let loading = true;
-	let sortField: keyof Recording = "uploaded_at";
+	let sortField: keyof Recording = "edited_at";
 	let sortOrder: "asc" | "desc" = "desc";
 	let playingId: string | null = null;
 	let audioElement: HTMLAudioElement;
@@ -215,6 +224,7 @@
 						<thead>
 							<tr>
 								<th>Status</th>
+								<th>Cover</th>
 								<th>
 									<button class="button is-ghost" on:click={() => sortBy("title")}>
 										Title
@@ -256,27 +266,16 @@
 									</button>
 								</th>
 								<th>
-									<button class="button is-ghost" on:click={() => sortBy("file_size")}>
-										Size
-										{#if getSortIcon("file_size")}
+									<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
+										Last Edited
+										{#if getSortIcon("edited_at")}
 											<span class="icon is-small">
-												<svelte:component this={getSortIcon("file_size")} size={14} />
+												<svelte:component this={getSortIcon("edited_at")} size={14} />
 											</span>
 										{/if}
 									</button>
 								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("uploaded_at")}>
-										Uploaded
-										{#if getSortIcon("uploaded_at")}
-											<span class="icon is-small">
-												<svelte:component this={getSortIcon("uploaded_at")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>Description</th>
-								<th>Link</th>
+								<th>Info</th>
 								<th>Play</th>
 								<th>Actions</th>
 							</tr>
@@ -289,6 +288,21 @@
 											<span class="tag is-success">OK</span>
 										{:else}
 											<span class="tag is-warning">Not OK</span>
+										{/if}
+									</td>
+									<td>
+										{#if recording.cover_url}
+											<figure class="image is-48x48">
+												<img src={recording.cover_url} alt="{recording.title} cover" />
+											</figure>
+										{:else}
+											<figure class="image is-48x48">
+												<div class="placeholder-cover">
+													<span class="icon">
+														<FileAudio size={24} />
+													</span>
+												</div>
+											</figure>
 										{/if}
 									</td>
 									<td>{recording.title || "Untitled"}</td>
@@ -310,31 +324,36 @@
 										</span>
 									</td>
 									<td>{formatDuration(recording.duration)}</td>
-									<td>{formatFileSize(recording.file_size)}</td>
 									<td>
-										<small>{formatDateTime(recording.uploaded_at)}</small>
+										<small>{formatDateTime(recording.edited_at || recording.uploaded_at)}</small>
 									</td>
 									<td>
-										<small
-											>{recording.description?.substring(0, 50) || "-"}{recording.description &&
-											recording.description.length > 50
-												? "..."
-												: ""}</small
-										>
-									</td>
-									<td>
-										{#if recording.link_out_url}
-											<a
-												href={recording.link_out_url}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="has-text-link"
-											>
-												Link
-											</a>
-										{:else}
-											-
-										{/if}
+										<div class="info-icons">
+											{#if recording.description}
+												<button
+													class="icon-button"
+													title={recording.description}
+													on:click={() => toast.info(recording.description, { duration: 5000 })}
+												>
+													<span class="icon">
+														<Info size={16} />
+													</span>
+												</button>
+											{/if}
+											{#if recording.link_out_url}
+												<a
+													href={recording.link_out_url}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="icon-button"
+													title={recording.link_out_url}
+												>
+													<span class="icon">
+														<ExternalLink size={16} />
+													</span>
+												</a>
+											{/if}
+										</div>
 									</td>
 									<td>
 										<button
@@ -417,5 +436,51 @@
 
 	.buttons {
 		margin-bottom: 0;
+	}
+
+	.image.is-48x48 {
+		width: 48px;
+		height: 48px;
+		overflow: hidden;
+		border-radius: 4px;
+	}
+
+	.image.is-48x48 img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.placeholder-cover {
+		width: 100%;
+		height: 100%;
+		background-color: #f5f5f5;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #b5b5b5;
+	}
+
+	.info-icons {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.icon-button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.25rem;
+		color: #3273dc;
+		transition: color 0.2s;
+	}
+
+	.icon-button:hover {
+		color: #2366d1;
+	}
+
+	a.icon-button {
+		text-decoration: none;
 	}
 </style>

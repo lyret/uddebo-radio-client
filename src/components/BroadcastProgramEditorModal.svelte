@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { X, Radio, Calendar, Info, Trash2 } from "lucide-svelte";
+	import { X, Radio, Calendar, Info, Trash2, Image } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { BroadcastProgram } from "@/api";
 	import { supabase } from "@/api";
@@ -13,7 +13,13 @@
 	let title = "";
 	let description = "";
 	let startTime = "";
+	let cover_url = "";
 	let loading = false;
+	let uploadingCover = false;
+
+	// File input
+	let coverFileInput: HTMLInputElement;
+	let selectedCoverFile: File | null = null;
 
 	$: if (isOpen && program) {
 		loadFormData();
@@ -27,12 +33,16 @@
 		title = program.title;
 		description = program.description || "";
 		startTime = program.start_time ? new Date(program.start_time).toISOString().slice(0, 16) : "";
+		cover_url = program.cover_url || "";
 	}
 
 	function resetForm() {
 		title = "";
 		description = "";
 		startTime = "";
+		cover_url = "";
+		selectedCoverFile = null;
+		if (coverFileInput) coverFileInput.value = "";
 	}
 
 	async function handleSubmit() {
@@ -51,6 +61,7 @@
 				title: title.trim(),
 				description: description.trim() || null,
 				start_time: new Date(startTime).toISOString(),
+				cover_url: cover_url || null,
 				edited_at: new Date().toISOString(),
 				edited_by: user?.id || null,
 			};
@@ -119,6 +130,121 @@
 		resetForm();
 		isOpen = false;
 		dispatch("close");
+	}
+
+	async function handleCoverFileSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		if (input.files && input.files[0]) {
+			selectedCoverFile = input.files[0];
+			// Validate file type
+			if (!selectedCoverFile.type.startsWith("image/")) {
+				toast.error("Please select an image file");
+				selectedCoverFile = null;
+				return;
+			}
+		}
+	}
+
+	async function uploadCoverImage() {
+		if (!selectedCoverFile || !program) return;
+
+		try {
+			uploadingCover = true;
+
+			// Upload cover image with timestamp for uniqueness
+			const fileExt = selectedCoverFile.name.split(".").pop();
+			const timestamp = Date.now();
+			const fileName = `${program.id}_${timestamp}.${fileExt}`;
+
+			// Delete old cover if exists
+			if (program.cover_url && program.cover_url.includes("supabase")) {
+				const oldFileName = program.cover_url.split("/").pop();
+				if (oldFileName) {
+					await supabase.storage.from("cover_images").remove([oldFileName]);
+				}
+			}
+
+			const { error: uploadError } = await supabase.storage
+				.from("cover_images")
+				.upload(fileName, selectedCoverFile);
+
+			if (uploadError) throw uploadError;
+
+			// Get public URL
+			const { data: urlData } = supabase.storage.from("cover_images").getPublicUrl(fileName);
+
+			// Update the form field
+			cover_url = urlData.publicUrl;
+
+			// Save the cover URL to database
+			const {
+				data: { user },
+			} = await supabase.auth.getUser();
+
+			const { error: dbError } = await supabase
+				.from("broadcast_programs")
+				.update({
+					cover_url: urlData.publicUrl,
+					edited_at: new Date().toISOString(),
+					edited_by: user?.id || null,
+				})
+				.eq("id", program.id);
+
+			if (dbError) throw dbError;
+
+			// Update local program object
+			program.cover_url = urlData.publicUrl;
+
+			toast.success("Cover image uploaded and saved");
+			selectedCoverFile = null;
+			coverFileInput.value = "";
+			dispatch("updated");
+		} catch (error) {
+			toast.error("Failed to upload cover image");
+			console.error(error);
+		} finally {
+			uploadingCover = false;
+		}
+	}
+
+	async function deleteCoverImage() {
+		if (!program || !program.cover_url) return;
+
+		try {
+			const {
+				data: { user },
+			} = await supabase.auth.getUser();
+
+			// Delete from storage if it's a Supabase URL
+			if (program.cover_url.includes("supabase")) {
+				const fileName = program.cover_url.split("/").pop();
+				if (fileName) {
+					await supabase.storage.from("cover_images").remove([fileName]);
+				}
+			}
+
+			// Clear from database
+			const { error } = await supabase
+				.from("broadcast_programs")
+				.update({
+					cover_url: null,
+					edited_at: new Date().toISOString(),
+					edited_by: user?.id || null,
+				})
+				.eq("id", program.id);
+
+			if (error) throw error;
+
+			// Update local state
+			program.cover_url = null;
+			cover_url = "";
+
+			toast.success("Cover image deleted");
+			dispatch("updated");
+		} catch (error) {
+			toast.error("Failed to delete cover image");
+			console.error(error);
+		}
 	}
 </script>
 
@@ -200,6 +326,68 @@
 					<p class="help">The date and time when this program should be broadcast</p>
 				</div>
 
+				<!-- Cover Image Upload -->
+				<div class="field">
+					<p class="label">Cover Image</p>
+					<div class="file has-name is-fullwidth mb-2">
+						<label class="file-label">
+							<input
+								bind:this={coverFileInput}
+								class="file-input"
+								type="file"
+								accept="image/*"
+								on:change={handleCoverFileSelect}
+								disabled={loading}
+							/>
+							<span class="file-cta">
+								<span class="file-icon">
+									<Image size={16} />
+								</span>
+								<span class="file-label">Choose cover image...</span>
+							</span>
+							<span class="file-name">
+								{selectedCoverFile ? selectedCoverFile.name : "No file selected"}
+							</span>
+						</label>
+					</div>
+					{#if selectedCoverFile}
+						<button
+							class="button is-info is-small"
+							type="button"
+							on:click={uploadCoverImage}
+							disabled={uploadingCover || loading}
+						>
+							{uploadingCover ? "Uploading..." : "Upload Cover"}
+						</button>
+					{/if}
+					{#if cover_url || (program && program.cover_url)}
+						<p class="help">
+							Current: <a href={cover_url || program.cover_url} target="_blank">View cover image</a>
+							<button
+								class="button is-danger is-small ml-2"
+								type="button"
+								on:click={deleteCoverImage}
+								disabled={loading}
+							>
+								<span class="icon">
+									<Trash2 size={14} />
+								</span>
+								<span>Delete</span>
+							</button>
+						</p>
+					{/if}
+				</div>
+
+				<!-- Cover Image Preview -->
+				{#if cover_url || (program && program.cover_url)}
+					<div class="field">
+						<p class="label">Cover Preview</p>
+						<figure class="image is-square">
+							<img src={cover_url || program?.cover_url} alt="Program cover" />
+						</figure>
+					</div>
+				{/if}
+
 				{#if !program}
 					<div class="notification is-info is-light">
 						<p class="is-size-7">
@@ -227,6 +415,7 @@
 						</div>
 					</div>
 				{/if}
+				<hr />
 				<div class="level-right">
 					<div class="level-item">
 						<button

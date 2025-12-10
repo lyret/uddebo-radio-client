@@ -203,7 +203,7 @@
 			if (uploadError) throw uploadError;
 
 			// Get public URL
-			const { data: urlData } = supabase.storage.from("cover_images").getPublicUrl(fileName);
+			const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(fileName);
 
 			// Get duration of new file
 			const audio = new Audio();
