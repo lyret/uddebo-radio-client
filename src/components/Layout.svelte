@@ -4,6 +4,7 @@
 	import { isAdmin } from "@/api";
 	import { slide, blur } from "svelte/transition";
 
+	export let requiresAdmin = false;
 	export let fullWidth = false;
 
 	$: currentPath = $location;
@@ -86,7 +87,17 @@
 					{/if}
 
 					<!-- Tab Content -->
-					<slot />
+					{#if !requiresAdmin || $isAdmin}
+						<slot />
+					{:else}
+						<div class="container has-text-centered">
+							<h1 class="title is-1 has-text-danger">500</h1>
+							<p class="subtitle is-4">Du måste vara inloggad för att komma åt den här sidan</p>
+							<a href="#/" class="button is-primary">
+								<span>Gå till startsidan</span>
+							</a>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>

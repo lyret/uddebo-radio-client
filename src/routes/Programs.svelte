@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { push } from "svelte-spa-router";
 	import {
 		Radio,
 		Plus,
 		Edit2,
-		Trash2,
 		Calendar,
 		ChevronUp,
 		ChevronDown,
@@ -18,7 +16,7 @@
 	import Layout from "@/components/Layout.svelte";
 	import BroadcastProgramEditorModal from "@/components/BroadcastProgramEditorModal.svelte";
 	import ProgramRecordingsModal from "@/components/ProgramRecordingsModal.svelte";
-	import { supabase, isAdmin } from "@/api";
+	import { supabase } from "@/api";
 
 	let programs: BroadcastProgram[] = [];
 	let loading = true;

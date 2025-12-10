@@ -15,7 +15,7 @@
 	import type { Recording } from "@/api";
 	import Layout from "@/components/Layout.svelte";
 	import RecordingEditorModal from "@/components/RecordingEditorModal.svelte";
-	import { supabase, isAdmin } from "@/api";
+	import { supabase } from "@/api";
 
 	let recordings: Recording[] = [];
 	let loading = true;
@@ -153,249 +153,242 @@
 
 		loadRecordings();
 	}
-
-	// Redirect to home if not admin
-	$: if (!$isAdmin) {
-		push("/");
-	}
 </script>
 
-{#if $isAdmin}
-	<Layout fullWidth={true}>
-		<div class="recordings-management">
-			<div class="level">
-				<div class="level-left">
-					<h2 class="title is-4">
-						<span class="icon">
-							<FileAudio />
-						</span>
-						Recordings Management
-					</h2>
-				</div>
-				<div class="level-right">
-					<div class="field has-addons">
-						<div class="control">
-							<span class="button is-static">Status:</span>
+<Layout fullWidth={true} requiresAdmin={true}>
+	<div class="recordings-management">
+		<div class="level">
+			<div class="level-left">
+				<h2 class="title is-4">
+					<span class="icon">
+						<FileAudio />
+					</span>
+					Recordings Management
+				</h2>
+			</div>
+			<div class="level-right">
+				<div class="field has-addons">
+					<div class="control">
+						<span class="button is-static">Status:</span>
+					</div>
+					<div class="control">
+						<div class="select">
+							<select bind:value={filterStatus} on:change={loadRecordings}>
+								<option value="ok">OK</option>
+								<option value="not_ok">Not OK</option>
+								<option value="all">All</option>
+							</select>
 						</div>
-						<div class="control">
-							<div class="select">
-								<select bind:value={filterStatus} on:change={loadRecordings}>
-									<option value="ok">OK</option>
-									<option value="not_ok">Not OK</option>
-									<option value="all">All</option>
-								</select>
-							</div>
+					</div>
+					<div class="control">
+						<span class="button is-static">Type:</span>
+					</div>
+					<div class="control">
+						<div class="select">
+							<select bind:value={filterType} on:change={loadRecordings}>
+								<option value="all">All Types</option>
+								{#each recordingTypes as type}
+									<option value={type}>{type}</option>
+								{/each}
+							</select>
 						</div>
-						<div class="control">
-							<span class="button is-static">Type:</span>
-						</div>
-						<div class="control">
-							<div class="select">
-								<select bind:value={filterType} on:change={loadRecordings}>
-									<option value="all">All Types</option>
-									{#each recordingTypes as type}
-										<option value={type}>{type}</option>
-									{/each}
-								</select>
-							</div>
-						</div>
-						<div class="control">
-							<span class="button is-static">{recordings.length} recordings</span>
-						</div>
+					</div>
+					<div class="control">
+						<span class="button is-static">{recordings.length} recordings</span>
 					</div>
 				</div>
 			</div>
-
-			{#if loading}
-				<div class="has-text-centered p-6">
-					<div class="button is-loading is-large is-ghost"></div>
-					<p class="mt-4">Loading recordings...</p>
-				</div>
-			{:else if recordings.length === 0}
-				<div class="notification is-info is-light">
-					<p>No recordings found. Upload some recordings to get started!</p>
-				</div>
-			{:else}
-				<div class="table-container">
-					<table class="table is-fullwidth is-striped is-hoverable">
-						<thead>
-							<tr>
-								<th>Status</th>
-								<th>Cover</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("title")}>
-										Title
-										{#if getSortIcon("title")}
-											<span class="icon is-small pl-2">
-												<svelte:component this={getSortIcon("title")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("author")}>
-										Author
-										{#if getSortIcon("author")}
-											<span class="icon is-small pl-2">
-												<svelte:component this={getSortIcon("author")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("type")}>
-										Type
-										{#if getSortIcon("type")}
-											<span class="icon is-small pl-2">
-												<svelte:component this={getSortIcon("type")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("duration")}>
-										Duration
-										{#if getSortIcon("duration")}
-											<span class="icon is-small pl-2">
-												<svelte:component this={getSortIcon("duration")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th>
-									<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
-										Last Edited
-										{#if getSortIcon("edited_at")}
-											<span class="icon is-small pl-2">
-												<svelte:component this={getSortIcon("edited_at")} size={14} />
-											</span>
-										{/if}
-									</button>
-								</th>
-								<th colspan="3" />
-							</tr>
-						</thead>
-						<tbody>
-							{#each recordings as recording (recording.id)}
-								<tr>
-									<td>
-										{#if recording.okey_at}
-											<span class="tag is-success">OK</span>
-										{:else}
-											<span class="tag is-warning">Not OK</span>
-										{/if}
-									</td>
-									<td>
-										{#if recording.cover_url}
-											<figure class="image is-48x48">
-												<img src={recording.cover_url} alt="{recording.title} cover" />
-											</figure>
-										{:else}
-											<figure class="image is-48x48">
-												<div class="placeholder-cover">
-													<span class="icon">
-														<FileAudio size={24} />
-													</span>
-												</div>
-											</figure>
-										{/if}
-									</td>
-									<td>{recording.title || "Untitled"}</td>
-									<td>{recording.author || "-"}</td>
-									<td>
-										<span
-											class="tag is-small"
-											class:is-info={recording.type === "music"}
-											class:is-success={recording.type === "news"}
-											class:is-warning={recording.type === "talk" ||
-												recording.type === "talkshow" ||
-												recording.type === "interview"}
-											class:is-primary={recording.type === "commentary"}
-											class:is-link={recording.type === "comedy"}
-											class:is-light={recording.type === "unknown" || recording.type === "other"}
-											class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
-										>
-											{recording.type}
-										</span>
-									</td>
-									<td>{formatDuration(recording.duration)}</td>
-									<td>
-										<small>{formatDateTime(recording.edited_at || recording.uploaded_at)}</small>
-									</td>
-									<td>
-										<div class="info-icons">
-											{#if recording.description}
-												<button
-													class="icon-button"
-													title={recording.description}
-													on:click={() => toast.info(recording.description, { duration: 5000 })}
-												>
-													<span class="icon">
-														<Info size={16} />
-													</span>
-												</button>
-											{/if}
-											{#if recording.link_out_url}
-												<button
-													class="icon-button"
-													title={recording.link_out_url}
-													on:click={() => toast.info(recording.link_out_url, { duration: 5000 })}
-												>
-													<span class="icon">
-														<ExternalLink size={16} />
-													</span>
-												</button>
-											{/if}
-										</div>
-									</td>
-									<td>
-										<button
-											class="button is-small"
-											on:click={() => togglePlay(recording)}
-											title={playingId === recording.id ? "Pause" : "Play"}
-										>
-											<span class="icon">
-												{#if playingId === recording.id}
-													<Pause size={16} />
-												{:else}
-													<Play size={16} />
-												{/if}
-											</span>
-										</button>
-									</td>
-									<td>
-										<button
-											class="button is-primary is-small"
-											title="Edit Recording"
-											on:click={() => openEditor(recording)}
-										>
-											<span class="icon">
-												<Edit2 size={16} />
-											</span>
-											<span>Edit</span>
-										</button>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
 		</div>
 
-		<!-- Hidden audio element for playback -->
-		<audio bind:this={audioElement} on:ended={handleAudioEnded} />
+		{#if loading}
+			<div class="has-text-centered p-6">
+				<div class="button is-loading is-large is-ghost"></div>
+				<p class="mt-4">Loading recordings...</p>
+			</div>
+		{:else if recordings.length === 0}
+			<div class="notification is-info is-light">
+				<p>No recordings found. Upload some recordings to get started!</p>
+			</div>
+		{:else}
+			<div class="table-container">
+				<table class="table is-fullwidth is-striped is-hoverable">
+					<thead>
+						<tr>
+							<th>Status</th>
+							<th>Cover</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("title")}>
+									Title
+									{#if getSortIcon("title")}
+										<span class="icon is-small pl-2">
+											<svelte:component this={getSortIcon("title")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("author")}>
+									Author
+									{#if getSortIcon("author")}
+										<span class="icon is-small pl-2">
+											<svelte:component this={getSortIcon("author")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("type")}>
+									Type
+									{#if getSortIcon("type")}
+										<span class="icon is-small pl-2">
+											<svelte:component this={getSortIcon("type")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("duration")}>
+									Duration
+									{#if getSortIcon("duration")}
+										<span class="icon is-small pl-2">
+											<svelte:component this={getSortIcon("duration")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th>
+								<button class="button is-ghost" on:click={() => sortBy("edited_at")}>
+									Last Edited
+									{#if getSortIcon("edited_at")}
+										<span class="icon is-small pl-2">
+											<svelte:component this={getSortIcon("edited_at")} size={14} />
+										</span>
+									{/if}
+								</button>
+							</th>
+							<th colspan="3" />
+						</tr>
+					</thead>
+					<tbody>
+						{#each recordings as recording (recording.id)}
+							<tr>
+								<td>
+									{#if recording.okey_at}
+										<span class="tag is-success">OK</span>
+									{:else}
+										<span class="tag is-warning">Not OK</span>
+									{/if}
+								</td>
+								<td>
+									{#if recording.cover_url}
+										<figure class="image is-48x48">
+											<img src={recording.cover_url} alt="{recording.title} cover" />
+										</figure>
+									{:else}
+										<figure class="image is-48x48">
+											<div class="placeholder-cover">
+												<span class="icon">
+													<FileAudio size={24} />
+												</span>
+											</div>
+										</figure>
+									{/if}
+								</td>
+								<td>{recording.title || "Untitled"}</td>
+								<td>{recording.author || "-"}</td>
+								<td>
+									<span
+										class="tag is-small"
+										class:is-info={recording.type === "music"}
+										class:is-success={recording.type === "news"}
+										class:is-warning={recording.type === "talk" ||
+											recording.type === "talkshow" ||
+											recording.type === "interview"}
+										class:is-primary={recording.type === "commentary"}
+										class:is-link={recording.type === "comedy"}
+										class:is-light={recording.type === "unknown" || recording.type === "other"}
+										class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
+									>
+										{recording.type}
+									</span>
+								</td>
+								<td>{formatDuration(recording.duration)}</td>
+								<td>
+									<small>{formatDateTime(recording.edited_at || recording.uploaded_at)}</small>
+								</td>
+								<td>
+									<div class="info-icons">
+										{#if recording.description}
+											<button
+												class="icon-button"
+												title={recording.description}
+												on:click={() => toast.info(recording.description, { duration: 5000 })}
+											>
+												<span class="icon">
+													<Info size={16} />
+												</span>
+											</button>
+										{/if}
+										{#if recording.link_out_url}
+											<button
+												class="icon-button"
+												title={recording.link_out_url}
+												on:click={() => toast.info(recording.link_out_url, { duration: 5000 })}
+											>
+												<span class="icon">
+													<ExternalLink size={16} />
+												</span>
+											</button>
+										{/if}
+									</div>
+								</td>
+								<td>
+									<button
+										class="button is-small"
+										on:click={() => togglePlay(recording)}
+										title={playingId === recording.id ? "Pause" : "Play"}
+									>
+										<span class="icon">
+											{#if playingId === recording.id}
+												<Pause size={16} />
+											{:else}
+												<Play size={16} />
+											{/if}
+										</span>
+									</button>
+								</td>
+								<td>
+									<button
+										class="button is-primary is-small"
+										title="Edit Recording"
+										on:click={() => openEditor(recording)}
+									>
+										<span class="icon">
+											<Edit2 size={16} />
+										</span>
+										<span>Edit</span>
+									</button>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</div>
 
-		<!-- Recording Editor Modal -->
-		<RecordingEditorModal
-			recording={editingRecording}
-			bind:isOpen={isEditorOpen}
-			on:close={handleEditorClose}
-			on:updated={handleEditorUpdate}
-			on:deleted={handleEditorUpdate}
-		/>
-	</Layout>
-{/if}
+	<!-- Hidden audio element for playback -->
+	<audio bind:this={audioElement} on:ended={handleAudioEnded} />
+
+	<!-- Recording Editor Modal -->
+	<RecordingEditorModal
+		recording={editingRecording}
+		bind:isOpen={isEditorOpen}
+		on:close={handleEditorClose}
+		on:updated={handleEditorUpdate}
+		on:deleted={handleEditorUpdate}
+	/>
+</Layout>
 
 <style>
 	.table-container {
