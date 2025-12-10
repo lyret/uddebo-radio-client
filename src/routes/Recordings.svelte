@@ -1,35 +1,22 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { push } from "svelte-spa-router";
-	import { Edit2, Save, X, ChevronUp, ChevronDown, FileAudio, Play, Pause } from "lucide-svelte";
+	import { Edit2, ChevronUp, ChevronDown, FileAudio, Play, Pause, Trash2 } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
-	import type { Recording, RecordingType, RecordingUpdate } from "@/api";
+	import type { Recording } from "@/api";
 	import Layout from "@/components/Layout.svelte";
+	import RecordingEditorModal from "@/components/RecordingEditorModal.svelte";
 	import { supabase, isAdmin } from "@/api";
 
 	let recordings: Recording[] = [];
 	let loading = true;
-	let editingId: string | null = null;
-	let editForm: Partial<Recording> = {};
 	let sortField: keyof Recording = "uploaded_at";
 	let sortOrder: "asc" | "desc" = "desc";
 	let playingId: string | null = null;
 	let audioElement: HTMLAudioElement;
-
-	// Recording types for dropdown
-	const recordingTypes: RecordingType[] = [
-		"unknown",
-		"rejected",
-		"music",
-		"news",
-		"commentary",
-		"talk",
-		"comedy",
-		"talkshow",
-		"interview",
-		"jingle",
-		"other",
-	];
+	let filterStatus: "ok" | "not_ok" | "all" = "ok";
+	let editingRecording: Recording | null = null;
+	let isEditorOpen = false;
 
 	onMount(() => {
 		loadRecordings();
@@ -37,10 +24,19 @@
 
 	async function loadRecordings() {
 		try {
-			const { data, error } = await supabase
-				.from("recordings")
-				.select("*")
-				.order(sortField, { ascending: sortOrder === "asc" });
+			let query = supabase.from("recordings").select("*");
+
+			// Apply filter based on okey_at status
+			if (filterStatus === "ok") {
+				query = query.not("okey_at", "is", null);
+			} else if (filterStatus === "not_ok") {
+				query = query.is("okey_at", null);
+			}
+			// 'all' shows everything without filter
+
+			const { data, error } = await query.order(sortField, {
+				ascending: sortOrder === "asc",
+			});
 
 			if (error) throw error;
 			recordings = data || [];
@@ -60,47 +56,6 @@
 			sortOrder = "asc";
 		}
 		loadRecordings();
-	}
-
-	function startEdit(recording: Recording) {
-		editingId = recording.id;
-		editForm = { ...recording };
-	}
-
-	function cancelEdit() {
-		editingId = null;
-		editForm = {};
-	}
-
-	async function saveEdit() {
-		if (!editingId || !editForm) return;
-
-		try {
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-
-			const updateData: RecordingUpdate = {
-				title: editForm.title,
-				author: editForm.author,
-				description: editForm.description,
-				link_out_url: editForm.link_out_url,
-				type: editForm.type,
-				edited_at: new Date().toISOString(),
-				edited_by: user?.id || null,
-			};
-
-			const { error } = await supabase.from("recordings").update(updateData).eq("id", editingId);
-
-			if (error) throw error;
-
-			toast.success("Recording updated successfully");
-			cancelEdit();
-			loadRecordings();
-		} catch (error) {
-			toast.error("Failed to update recording");
-			console.error(error);
-		}
 	}
 
 	async function deleteRecording(id: string) {
@@ -156,6 +111,20 @@
 		playingId = null;
 	}
 
+	function openEditor(recording: Recording) {
+		editingRecording = recording;
+		isEditorOpen = true;
+	}
+
+	function handleEditorClose() {
+		editingRecording = null;
+		isEditorOpen = false;
+	}
+
+	function handleEditorUpdate() {
+		loadRecordings();
+	}
+
 	// Redirect to home if not admin
 	$: if (!$isAdmin) {
 		push("/");
@@ -175,7 +144,23 @@
 					</h2>
 				</div>
 				<div class="level-right">
-					<p class="has-text-grey">Total: {recordings.length} recordings</p>
+					<div class="field has-addons">
+						<div class="control">
+							<span class="button is-static">Show:</span>
+						</div>
+						<div class="control">
+							<div class="select">
+								<select bind:value={filterStatus} on:change={loadRecordings}>
+									<option value="ok">OK</option>
+									<option value="not_ok">Not OK</option>
+									<option value="all">All</option>
+								</select>
+							</div>
+						</div>
+						<div class="control">
+							<span class="button is-static">{recordings.length} recordings</span>
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -193,6 +178,7 @@
 					<table class="table is-fullwidth is-striped is-hoverable">
 						<thead>
 							<tr>
+								<th>Status</th>
 								<th>
 									<button class="button is-ghost" on:click={() => sortBy("title")}>
 										Title
@@ -262,148 +248,96 @@
 						<tbody>
 							{#each recordings as recording (recording.id)}
 								<tr>
-									{#if editingId === recording.id}
-										<td>
-											<input
-												class="input is-small"
-												type="text"
-												bind:value={editForm.title}
-												placeholder="Title"
-											/>
-										</td>
-										<td>
-											<input
-												class="input is-small"
-												type="text"
-												bind:value={editForm.author}
-												placeholder="Author"
-											/>
-										</td>
-										<td>
-											<div class="select is-small">
-												<select bind:value={editForm.type}>
-													{#each recordingTypes as type}
-														<option value={type}>{type}</option>
-													{/each}
-												</select>
-											</div>
-										</td>
-										<td>{formatDuration(recording.duration)}</td>
-										<td>{formatFileSize(recording.file_size)}</td>
-										<td>
-											<small>{formatDateTime(recording.uploaded_at)}</small>
-										</td>
-										<td>
-											<input
-												class="input is-small"
-												type="text"
-												bind:value={editForm.description}
-												placeholder="Description"
-											/>
-										</td>
-										<td></td>
-										<td>
-											<input
-												class="input is-small"
-												type="url"
-												bind:value={editForm.link_out_url}
-												placeholder="External URL"
-											/>
-										</td>
-										<td>
-											<div class="buttons are-small">
-												<button class="button is-success is-small" on:click={saveEdit}>
-													<span class="icon">
-														<Save size={16} />
-													</span>
-												</button>
-												<button class="button is-light is-small" on:click={cancelEdit}>
-													<span class="icon">
-														<X size={16} />
-													</span>
-												</button>
-											</div>
-										</td>
-									{:else}
-										<td>{recording.title || "Untitled"}</td>
-										<td>{recording.author || "-"}</td>
-										<td>
-											<span
-												class="tag is-small"
-												class:is-danger={recording.type === "rejected"}
-												class:is-info={recording.type === "music"}
-												class:is-success={recording.type === "news"}
-												class:is-warning={recording.type === "talk" ||
-													recording.type === "talkshow" ||
-													recording.type === "interview"}
-												class:is-primary={recording.type === "commentary"}
-												class:is-link={recording.type === "comedy"}
-												class:is-light={recording.type === "unknown" || recording.type === "other"}
+									<td>
+										{#if recording.okey_at}
+											<span class="tag is-success">OK</span>
+										{:else}
+											<span class="tag is-warning">Not OK</span>
+										{/if}
+									</td>
+									<td>{recording.title || "Untitled"}</td>
+									<td>{recording.author || "-"}</td>
+									<td>
+										<span
+											class="tag is-small"
+											class:is-info={recording.type === "music"}
+											class:is-success={recording.type === "news"}
+											class:is-warning={recording.type === "talk" ||
+												recording.type === "talkshow" ||
+												recording.type === "interview"}
+											class:is-primary={recording.type === "commentary"}
+											class:is-link={recording.type === "comedy"}
+											class:is-light={recording.type === "unknown" || recording.type === "other"}
+											class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
+										>
+											{recording.type}
+										</span>
+									</td>
+									<td>{formatDuration(recording.duration)}</td>
+									<td>{formatFileSize(recording.file_size)}</td>
+									<td>
+										<small>{formatDateTime(recording.uploaded_at)}</small>
+									</td>
+									<td>
+										<small
+											>{recording.description?.substring(0, 50) || "-"}{recording.description &&
+											recording.description.length > 50
+												? "..."
+												: ""}</small
+										>
+									</td>
+									<td>
+										{#if recording.link_out_url}
+											<a
+												href={recording.link_out_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="has-text-link"
 											>
-												{recording.type}
+												Link
+											</a>
+										{:else}
+											-
+										{/if}
+									</td>
+									<td>
+										<button
+											class="button is-small"
+											on:click={() => togglePlay(recording)}
+											title={playingId === recording.id ? "Pause" : "Play"}
+										>
+											<span class="icon">
+												{#if playingId === recording.id}
+													<Pause size={16} />
+												{:else}
+													<Play size={16} />
+												{/if}
 											</span>
-										</td>
-										<td>{formatDuration(recording.duration)}</td>
-										<td>{formatFileSize(recording.file_size)}</td>
-										<td>
-											<small>{formatDateTime(recording.uploaded_at)}</small>
-										</td>
-										<td>
-											<small
-												>{recording.description?.substring(0, 50) || "-"}{recording.description &&
-												recording.description.length > 50
-													? "..."
-													: ""}</small
-											>
-										</td>
-										<td>
-											{#if recording.link_out_url}
-												<a
-													href={recording.link_out_url}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="has-text-link"
-												>
-													Link
-												</a>
-											{:else}
-												-
-											{/if}
-										</td>
-										<td>
+										</button>
+									</td>
+									<td>
+										<div class="buttons are-small">
 											<button
-												class="button is-small"
-												on:click={() => togglePlay(recording)}
-												title={playingId === recording.id ? "Pause" : "Play"}
+												class="button is-primary is-small"
+												title="Edit Recording"
+												on:click={() => openEditor(recording)}
 											>
 												<span class="icon">
-													{#if playingId === recording.id}
-														<Pause size={16} />
-													{:else}
-														<Play size={16} />
-													{/if}
+													<Edit2 size={16} />
+												</span>
+												<span>Edit</span>
+											</button>
+											<button
+												class="button is-danger is-small"
+												on:click={() => deleteRecording(recording.id)}
+												title="Delete Recording"
+											>
+												<span class="icon">
+													<Trash2 size={16} />
 												</span>
 											</button>
-										</td>
-										<td>
-											<div class="buttons are-small">
-												<button
-													class="button is-info is-small"
-													on:click={() => startEdit(recording)}
-												>
-													<span class="icon">
-														<Edit2 size={16} />
-													</span>
-												</button>
-												<button
-													class="button is-danger is-small"
-													on:click={() => deleteRecording(recording.id)}
-												>
-													Delete
-												</button>
-											</div>
-										</td>
-									{/if}
+										</div>
+									</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -414,6 +348,14 @@
 
 		<!-- Hidden audio element for playback -->
 		<audio bind:this={audioElement} on:ended={handleAudioEnded} />
+
+		<!-- Recording Editor Modal -->
+		<RecordingEditorModal
+			recording={editingRecording}
+			bind:isOpen={isEditorOpen}
+			on:close={handleEditorClose}
+			on:updated={handleEditorUpdate}
+		/>
 	</Layout>
 {/if}
 
@@ -443,12 +385,6 @@
 
 	.table td {
 		vertical-align: middle;
-	}
-
-	.input.is-small,
-	.select.is-small select {
-		height: 2rem;
-		font-size: 0.875rem;
 	}
 
 	.buttons {

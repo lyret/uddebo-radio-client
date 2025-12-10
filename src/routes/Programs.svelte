@@ -47,8 +47,8 @@
 			const { data, error } = await supabase
 				.from("recordings")
 				.select("*")
-				.not("type", "eq", "rejected")
-				.order("uploaded_at", { ascending: false });
+				.not("okey_at", "eq", null)
+				.order("edited_at", { ascending: false });
 
 			if (error) throw error;
 			recordings = data || [];
