@@ -2,25 +2,11 @@
 	import { toast } from "svelte-sonner";
 	import { LogOut, User as UserIcon } from "lucide-svelte";
 	import Layout from "@/components/Layout.svelte";
-	import { authenticationStore, supabase } from "@/api";
+	import { authenticationStore } from "@/api";
 
 	let loading = false;
 	let email = "";
 	let password = "";
-	let activeTab = "signin";
-
-	async function signUp(email: string, password: string) {
-		const redirectUrl = `${window.location.origin}/`;
-
-		const { error } = await supabase.auth.signUp({
-			email,
-			password,
-			options: {
-				emailRedirectTo: redirectUrl,
-			},
-		});
-		return { error };
-	}
 
 	async function signInHandler() {
 		const { error } = await authenticationStore.signIn(email, password);
@@ -36,7 +22,7 @@
 		}
 	}
 
-	async function handleSubmit(isSignUp: boolean) {
+	async function handleSubmit() {
 		if (!email || !password) {
 			toast.error("Please fill in all fields");
 			return;
@@ -44,7 +30,7 @@
 
 		loading = true;
 		try {
-			const error = isSignUp ? (await signUp(email, password)).error : await signInHandler();
+			const error = await signInHandler();
 
 			if (error) {
 				if (error.message?.includes("User already registered")) {
@@ -55,11 +41,7 @@
 					toast.error(error.message || "An error occurred");
 				}
 			} else {
-				if (isSignUp) {
-					toast.success("Account created! Please check your email to confirm your account.");
-				} else {
-					toast.success("Signed in successfully!");
-				}
+				toast.success("Signed in successfully!");
 				email = "";
 				password = "";
 			}
@@ -109,23 +91,12 @@
 					Create an account to manage your uploads, or upload anonymously without signing up
 				</p>
 
-				<div class="tabs is-centered">
-					<ul>
-						<li class:is-active={activeTab === "signin"}>
-							<a href="#signin" on:click|preventDefault={() => (activeTab = "signin")}>Sign In</a>
-						</li>
-						<li class:is-active={activeTab === "signup"}>
-							<a href="#signup" on:click|preventDefault={() => (activeTab = "signup")}>Sign Up</a>
-						</li>
-					</ul>
-				</div>
-
-				<form on:submit|preventDefault={() => handleSubmit(activeTab === "signup")}>
+				<form on:submit|preventDefault={() => handleSubmit()}>
 					<div class="field">
-						<label class="label" for="{activeTab}-email">Email</label>
+						<label class="label" for="email">Email</label>
 						<div class="control">
 							<input
-								id="{activeTab}-email"
+								id="email"
 								class="input"
 								type="email"
 								bind:value={email}
@@ -137,14 +108,14 @@
 					</div>
 
 					<div class="field">
-						<label class="label" for="{activeTab}-password">Password</label>
+						<label class="label" for="password">Password</label>
 						<div class="control">
 							<input
-								id="{activeTab}-password"
+								id="password"
 								class="input"
 								type="password"
 								bind:value={password}
-								placeholder={activeTab === "signup" ? "Create a password" : "Enter your password"}
+								placeholder="Enter your password"
 								disabled={loading}
 								required
 							/>
@@ -159,7 +130,7 @@
 								disabled={loading}
 								class:is-loading={loading}
 							>
-								{activeTab === "signup" ? "Create Account" : "Sign In"}
+								Sign In
 							</button>
 						</div>
 					</div>
