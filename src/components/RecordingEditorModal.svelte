@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { Save, Upload, Check, AlertCircle, CheckCircle, Download } from "lucide-svelte";
+	import { Save, Upload, Check, AlertCircle, CheckCircle, Download, Trash2 } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { Recording, RecordingType, RecordingUpdate } from "@/api";
 	import { supabase } from "@/api";
@@ -16,15 +16,13 @@
 	let selectedFile: File | null = null;
 
 	// Form fields
-	let formData: Partial<Recording> = {
-		title: "",
-		author: "",
-		description: "",
-		type: "unknown",
-		link_out_url: "",
-		cover_url: "",
-		captions_url: "",
-	};
+	let title = "";
+	let author = "";
+	let description = "";
+	let type: RecordingType = "unknown";
+	let link_out_url = "";
+	let cover_url = "";
+	let captions_url = "";
 
 	// Recording types
 	const recordingTypes: RecordingType[] = [
@@ -41,20 +39,35 @@
 		"other",
 	];
 
-	// Reset form when recording changes
-	$: if (recording) {
-		formData = {
-			title: recording.title || "",
-			author: recording.author || "",
-			description: recording.description || "",
-			type: recording.type || "unknown",
-			link_out_url: recording.link_out_url || "",
-			cover_url: recording.cover_url || "",
-			captions_url: recording.captions_url || "",
-		};
+	// Load form data when modal opens
+	$: if (isOpen && recording) {
+		loadFormData();
+	}
+
+	function loadFormData() {
+		if (!recording) return;
+
+		title = recording.title || "";
+		author = recording.author || "";
+		description = recording.description || "";
+		type = recording.type || "unknown";
+		link_out_url = recording.link_out_url || "";
+		cover_url = recording.cover_url || "";
+		captions_url = recording.captions_url || "";
+	}
+
+	function resetForm() {
+		title = "";
+		author = "";
+		description = "";
+		type = "unknown";
+		link_out_url = "";
+		cover_url = "";
+		captions_url = "";
 	}
 
 	function closeModal() {
+		resetForm();
 		isOpen = false;
 		selectedFile = null;
 		if (fileInput) fileInput.value = "";
@@ -71,7 +84,13 @@
 			} = await supabase.auth.getUser();
 
 			const updateData: RecordingUpdate = {
-				...formData,
+				title,
+				author,
+				description,
+				type,
+				link_out_url,
+				cover_url,
+				captions_url,
 				edited_at: new Date().toISOString(),
 				edited_by: user?.id || null,
 			};
@@ -81,7 +100,8 @@
 			if (error) throw error;
 
 			toast.success("Recording updated successfully");
-			dispatch("updated");
+			dispatch("updated", { changedType: recording.type !== type && type });
+			closeModal();
 		} catch (error) {
 			toast.error("Failed to update recording");
 			console.error(error);
@@ -163,6 +183,7 @@
 			selectedFile = null;
 			fileInput.value = "";
 			dispatch("updated");
+			closeModal();
 		} catch (error) {
 			toast.error("Failed to upload new audio file");
 			console.error(error);
@@ -200,7 +221,7 @@
 				edited_by: user?.id || null,
 			};
 			toast.success("Recording marked as OK");
-			dispatch("updated");
+			dispatch("updated", { changedStatus: true, newStatus: "ok" });
 		} catch (error) {
 			toast.error("Failed to mark recording as OK");
 			console.error(error);
@@ -236,12 +257,33 @@
 				edited_by: user?.id || null,
 			};
 			toast.success("Recording marked as not OK");
-			dispatch("updated");
+			dispatch("updated", { changedStatus: true, newStatus: "not_ok" });
 		} catch (error) {
 			toast.error("Failed to mark recording as not OK");
 			console.error(error);
 		}
 	}
+
+	async function handleDelete() {
+		if (!recording) return;
+
+		if (!confirm("Are you sure you want to delete this recording? This action cannot be undone."))
+			return;
+
+		try {
+			const { error } = await supabase.from("recordings").delete().eq("id", recording.id);
+
+			if (error) throw error;
+
+			toast.success("Recording deleted successfully");
+			dispatch("deleted");
+			closeModal();
+		} catch (error) {
+			toast.error("Failed to delete recording");
+			console.error(error);
+		}
+	}
+
 	function formatFileSize(bytes: number) {
 		const mb = bytes / (1024 * 1024);
 		return `${mb.toFixed(2)} MB`;
@@ -303,7 +345,7 @@
 											id="modal-title"
 											class="input"
 											type="text"
-											bind:value={formData.title}
+											bind:value={title}
 											placeholder="Recording title"
 										/>
 									</div>
@@ -316,7 +358,7 @@
 											id="modal-author"
 											class="input"
 											type="text"
-											bind:value={formData.author}
+											bind:value={author}
 											placeholder="Author name"
 										/>
 									</div>
@@ -328,7 +370,7 @@
 										<textarea
 											id="modal-description"
 											class="textarea"
-											bind:value={formData.description}
+											bind:value={description}
 											placeholder="Detailed description of the recording"
 											rows="4"
 										/>
@@ -339,7 +381,7 @@
 									<label class="label" for="modal-type">Type</label>
 									<div class="control">
 										<div class="select is-fullwidth">
-											<select id="modal-type" bind:value={formData.type}>
+											<select id="modal-type" bind:value={type}>
 												{#each recordingTypes as type}
 													<option value={type}>{type}</option>
 												{/each}
@@ -355,7 +397,7 @@
 											id="modal-link"
 											class="input"
 											type="url"
-											bind:value={formData.link_out_url}
+											bind:value={link_out_url}
 											placeholder="https://example.com"
 										/>
 									</div>
@@ -369,7 +411,7 @@
 											id="modal-cover"
 											class="input"
 											type="url"
-											bind:value={formData.cover_url}
+											bind:value={cover_url}
 											placeholder="https://example.com/image.jpg"
 										/>
 									</div>
@@ -383,7 +425,7 @@
 											id="modal-captions"
 											class="input"
 											type="url"
-											bind:value={formData.captions_url}
+											bind:value={captions_url}
 											placeholder="https://example.com/captions.json"
 										/>
 									</div>
@@ -483,14 +525,14 @@
 										class:is-warning={recording.okey_at === null}
 									>
 										{#if recording.okey_at === null}
-											<span class="icon">
-												<AlertCircle />
-											</span>
-											<span class="has-text-weight-semibold"> Recording is marked as NOT OK </span>
+											<p class="icon has-text-centered">
+												<span class="icon"><AlertCircle /></span>
+											</p>
+											<p class="has-text-weight-semibold">Recording is marked as NOT OK</p>
 										{:else}
-											<span class="icon">
-												<CheckCircle />
-											</span>
+											<p class="icon has-text-centered">
+												<span class="icon"><CheckCircle /></span>
+											</p>
 											<span class="has-text-weight-semibold"> Recording is marked as OK </span>
 										{/if}
 									</div>
@@ -516,6 +558,23 @@
 										{/if}
 									</p>
 								</div>
+								{#if recording.okey_at === null}
+									<div class="field">
+										<button
+											class="button is-small is-danger is-outlined is-fullwidth"
+											on:click={handleDelete}
+											disabled={saving}
+										>
+											<span class="icon">
+												<Trash2 size={16} />
+											</span>
+											<span>Delete Recording</span>
+										</button>
+										<p class="help">
+											This recording has not been marked as OK and can be permanently deleted.
+										</p>
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -523,13 +582,13 @@
 			</section>
 
 			<footer class="modal-card-foot">
-				<button class="button is-primary" on:click={handleSave} disabled={saving}>
+				<button class="button is-primary" on:click={handleSave} disabled={saving} type="button">
 					<span class="icon">
 						<Save />
 					</span>
 					<span>{saving ? "Saving..." : "Save Changes"}</span>
 				</button>
-				<button class="button" on:click={closeModal}>Cancel</button>
+				<button class="button" on:click={closeModal} type="button">Cancel</button>
 			</footer>
 		</div>
 	</div>

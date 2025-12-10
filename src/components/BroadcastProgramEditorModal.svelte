@@ -209,27 +209,42 @@
 					</div>
 				{/if}
 			</form>
+
+			<div class="level is-mobile mt-5">
+				{#if program}
+					<div class="level-left">
+						<div class="level-item">
+							<button
+								class="button is-danger is-outlined"
+								on:click={handleDelete}
+								disabled={loading}
+							>
+								<span class="icon">
+									<Trash2 size={16} />
+								</span>
+								<span>Delete Program</span>
+							</button>
+						</div>
+					</div>
+				{/if}
+				<div class="level-right">
+					<div class="level-item">
+						<button
+							type="submit"
+							form="program-form"
+							class="button is-primary"
+							class:is-loading={loading}
+							disabled={loading}
+						>
+							{program ? "Update" : "Create"} Program
+						</button>
+					</div>
+					<div class="level-item">
+						<button class="button" on:click={handleClose} disabled={loading}>Cancel</button>
+					</div>
+				</div>
+			</div>
 		</section>
-		<footer class="modal-card-foot">
-			<button
-				type="submit"
-				form="program-form"
-				class="button is-primary"
-				class:is-loading={loading}
-				disabled={loading}
-			>
-				{program ? "Update" : "Create"} Program
-			</button>
-			{#if program}
-				<button class="button is-danger is-outlined" on:click={handleDelete} disabled={loading}>
-					<span class="icon">
-						<Trash2 size={16} />
-					</span>
-					<span>Delete Program</span>
-				</button>
-			{/if}
-			<button class="button" on:click={handleClose} disabled={loading}>Cancel</button>
-		</footer>
 	</div>
 </div>
 

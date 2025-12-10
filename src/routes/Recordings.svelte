@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { push } from "svelte-spa-router";
-	import { Edit2, ChevronUp, ChevronDown, FileAudio, Play, Pause, Trash2 } from "lucide-svelte";
+	import { Edit2, ChevronUp, ChevronDown, FileAudio, Play, Pause } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { Recording } from "@/api";
 	import Layout from "@/components/Layout.svelte";
@@ -18,11 +18,23 @@
 	let filterType: string = "all";
 	let editingRecording: Recording | null = null;
 	let isEditorOpen = false;
-	let availableTypes: string[] = [];
+	// All possible recording types
+	const recordingTypes = [
+		"unknown",
+		"jingle",
+		"poetry",
+		"music",
+		"news",
+		"commentary",
+		"talk",
+		"comedy",
+		"talkshow",
+		"interview",
+		"other",
+	];
 
 	onMount(() => {
 		loadRecordings();
-		loadAvailableTypes();
 	});
 
 	async function loadRecordings() {
@@ -64,23 +76,6 @@
 			sortOrder = "asc";
 		}
 		loadRecordings();
-	}
-
-	async function deleteRecording(id: string) {
-		if (!confirm("Are you sure you want to delete this recording? This action cannot be undone."))
-			return;
-
-		try {
-			const { error } = await supabase.from("recordings").delete().eq("id", id);
-
-			if (error) throw error;
-
-			toast.success("Recording deleted successfully");
-			loadRecordings();
-		} catch (error) {
-			toast.error("Failed to delete recording");
-			console.error(error);
-		}
 	}
 
 	function formatDateTime(dateString: string | null) {
@@ -129,26 +124,28 @@
 		isEditorOpen = false;
 	}
 
-	function handleEditorUpdate() {
-		loadRecordings();
-	}
+	function handleEditorUpdate(event: CustomEvent) {
+		const detail = event.detail;
 
-	async function loadAvailableTypes() {
-		try {
-			// Get all unique recording types from the database
-			const { data, error } = await supabase
-				.from("recordings")
-				.select("type")
-				.not("type", "is", null);
-
-			if (error) throw error;
-
-			// Extract unique types
-			const types = Array.from(new Set(data?.map((r) => r.type).filter(Boolean) || []));
-			availableTypes = types.sort();
-		} catch (error) {
-			console.error("Failed to load recording types:", error);
+		// If status changed and we're filtering by status (not "all")
+		if (detail?.changedStatus && filterStatus !== "all") {
+			// If changed to "ok" and we're showing "not_ok", switch to "ok"
+			if (detail.newStatus === "ok" && filterStatus === "not_ok") {
+				filterStatus = "ok";
+			}
+			// If changed to "not_ok" and we're showing "ok", switch to "not_ok"
+			else if (detail.newStatus === "not_ok" && filterStatus === "ok") {
+				filterStatus = "not_ok";
+			}
 		}
+
+		// If type changed and we're filtering by a specific type
+		if (detail?.changedType && filterType !== "all") {
+			// Reset type filter to "all" since the recording's type changed
+			filterType = detail.changedType;
+		}
+
+		loadRecordings();
 	}
 
 	// Redirect to home if not admin
@@ -190,7 +187,7 @@
 							<div class="select">
 								<select bind:value={filterType} on:change={loadRecordings}>
 									<option value="all">All Types</option>
-									{#each availableTypes as type}
+									{#each recordingTypes as type}
 										<option value={type}>{type}</option>
 									{/each}
 								</select>
@@ -366,15 +363,6 @@
 												</span>
 												<span>Edit</span>
 											</button>
-											<button
-												class="button is-danger is-small"
-												on:click={() => deleteRecording(recording.id)}
-												title="Delete Recording"
-											>
-												<span class="icon">
-													<Trash2 size={16} />
-												</span>
-											</button>
 										</div>
 									</td>
 								</tr>
@@ -394,6 +382,7 @@
 			bind:isOpen={isEditorOpen}
 			on:close={handleEditorClose}
 			on:updated={handleEditorUpdate}
+			on:deleted={handleEditorUpdate}
 		/>
 	</Layout>
 {/if}
