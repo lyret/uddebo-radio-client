@@ -5,6 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
+		"supabase": "supabase gen types typescript --project-id \"zkftcwrmauaqlinlsvxs\" --schema public > database.types.ts",
+		"supabase:init": "supabase init",
 		"build": "vite build",
 		"build:dev": "vite build --mode development",
 		"lint": "eslint . && svelte-check --tsconfig ./tsconfig.json",
