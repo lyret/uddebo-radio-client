@@ -26,7 +26,9 @@ An recording is an audio file with the following related metadata:
 - link_out_url (optional): an optional url to display as an external link out for promotional purposes
 - captions_url (optional): a .json file containing the captions for the recording
 - cover_url (optional): a file in storage and url to an image to display as the cover art for the recording in the media player
-- type: either 'unknown', 'rejected', 'music', 'news', 'commentary', 'talk', 'comedy', 'talkshow', 'interview', 'jingle' or 'other'
+- type: either 'unknown', 'poetry', 'music', 'news', 'commentary', 'talk', 'comedy', 'talkshow', 'interview', 'jingle' or 'other'
+- okey_at: The datetime this recording was okeyed for airing
+- okey_by: The uuid of the admin user who okeyed this recording for airing
 
 Anybody can create an recording by uploading a file to though the client gui but only signed in admin users can edit or delete them.
 
