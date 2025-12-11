@@ -11,7 +11,7 @@
 		AlertCircle,
 	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
-	import { flip } from "svelte/animate";
+
 	import type { BroadcastProgram, Recording } from "@/api";
 	import { supabase } from "@/api";
 	import { draggable, dropzone, sortable, arrayMove, type DragData } from "@/lib/dndWrapper";
@@ -218,13 +218,13 @@
 		return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 	}
 
-	function getTotalDuration(): string {
+	$: totalDuration = (() => {
 		const total = selectedRecordings.reduce((sum, item) => {
 			const recording = getRecordingInfo(item.id);
 			return sum + (recording?.duration || 0);
 		}, 0);
 		return formatDuration(total);
-	}
+	})();
 
 	function toggleSort(field: "title" | "edited_at" | "author") {
 		if (sortBy === field) {
@@ -242,9 +242,24 @@
 	];
 
 	// Drag and drop handlers
-	function handleDropOnSelected(dragData: DragData) {
+	function handleDropOnSelected(dragData: DragData, dropIndex?: number) {
 		if (dragData.type === "available-recording") {
-			addRecording(dragData.id);
+			const newItem = {
+				id: dragData.id,
+				uniqueKey: Date.now(),
+			};
+
+			if (dropIndex !== undefined && dropIndex >= 0) {
+				// Insert at specific position
+				selectedRecordings = [
+					...selectedRecordings.slice(0, dropIndex),
+					newItem,
+					...selectedRecordings.slice(dropIndex),
+				];
+			} else {
+				// Add to end
+				selectedRecordings = [...selectedRecordings, newItem];
+			}
 		}
 	}
 
@@ -379,7 +394,6 @@
 										tabindex="0"
 										on:dblclick={() => addRecording(recording.id)}
 										on:keydown={(e) => e.key === "Enter" && addRecording(recording.id)}
-										animate:flip={{ duration: 200 }}
 										use:draggable={{
 											dragData: {
 												id: recording.id,
@@ -399,16 +413,10 @@
 											{#if recording.type}
 												<span
 													class="tag is-small ml-2"
-													class:is-info={recording.type === "music"}
-													class:is-success={recording.type === "news"}
-													class:is-warning={recording.type === "talk" ||
-														recording.type === "talkshow" ||
-														recording.type === "interview"}
-													class:is-primary={recording.type === "commentary"}
-													class:is-link={recording.type === "comedy"}
-													class:is-light={recording.type === "unknown" ||
-														recording.type === "other"}
-													class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
+													class:is-primary={recording.type === "music"}
+													class:is-info={recording.type === "interview"}
+													class:is-success={recording.type === "narration"}
+													class:is-warning={recording.type === "other"}
 												>
 													{getSwedishRecordingType(recording.type)}
 												</span>
@@ -438,7 +446,7 @@
 									</h3>
 								</div>
 								<div class="level-right">
-									<span class="tag is-info">Total: {getTotalDuration()}</span>
+									<span class="tag is-info">Total: {totalDuration}</span>
 								</div>
 							</div>
 						</div>
@@ -466,15 +474,11 @@
 							</div>
 						{:else}
 							<div
-								class="recording-list selected-list"
 								bind:this={selectedListRef}
-								role="listbox"
-								aria-label="Selected recordings"
+								class="recording-list selected-list"
 								use:sortable={{
 									items: selectedRecordings,
 									onSort: handleSortableSort,
-								}}
-								use:dropzone={{
 									onDrop: handleDropOnSelected,
 									acceptTypes: ["available-recording"],
 								}}
@@ -484,11 +488,9 @@
 									<div
 										class="recording-item selected-item"
 										class:recording-not-found={!recording}
-										animate:flip={{ duration: 200 }}
 										data-sortable-item={item.uniqueKey}
 									>
 										<div class="recording-content">
-											<span class="has-text-weight-semibold mr-2">{index + 1}.</span>
 											{#if loadingRecordings}
 												<span class="has-text-grey-light">Laddar...</span>
 											{:else if !recording}
@@ -509,6 +511,17 @@
 												<span class="has-text-grey-light ml-2">
 													({formatDuration(recording.duration)})
 												</span>
+												{#if recording.type}
+													<span
+														class="tag is-small ml-2"
+														class:is-primary={recording.type === "music"}
+														class:is-info={recording.type === "interview"}
+														class:is-success={recording.type === "narration"}
+														class:is-warning={recording.type === "other"}
+													>
+														{getSwedishRecordingType(recording.type)}
+													</span>
+												{/if}
 											{/if}
 										</div>
 										<div class="buttons has-addons">
@@ -636,7 +649,7 @@
 	}
 
 	.recording-item.draggable {
-		position: relative;
+		cursor: grab;
 	}
 
 	:global(.recording-item.dragging) {
@@ -696,6 +709,11 @@
 		border: 2px dashed #3273dc;
 		border-radius: 4px;
 		margin-bottom: 0.5rem;
+		padding: 1rem;
+		display: flex;
+		align-items: center;
+		min-height: 60px;
+		opacity: 0.5;
 	}
 
 	@media (max-width: 768px) {

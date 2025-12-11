@@ -193,16 +193,19 @@ export const dropzone: Action<
 export const sortable: Action<
 	HTMLElement,
 	{
-		items: Array<{ id: string; [key: string]: any }>;
+		items: Array<{ id: string; uniqueKey?: string | number; [key: string]: any }>;
 		onSort: (fromIndex: number, toIndex: number) => void;
 		disabled?: boolean;
 		handle?: string; // CSS selector for drag handle
+		onDrop?: (dragData: DragData, dropIndex: number) => void;
+		acceptTypes?: string[];
 	}
 > = (node, params) => {
-	let { items, onSort, disabled = false, handle } = params || {};
+	let { items, onSort, disabled = false, handle, onDrop, acceptTypes } = params || {};
 	let draggedElement: HTMLElement | null = null;
 	let draggedIndex: number = -1;
 	let placeholder: HTMLElement | null = null;
+	let isInternalDrag: boolean = false;
 
 	function getItemElement(target: EventTarget | null): HTMLElement | null {
 		if (!target || !(target instanceof HTMLElement)) return null;
@@ -212,8 +215,15 @@ export const sortable: Action<
 	}
 
 	function getItemIndex(element: HTMLElement): number {
-		const itemElements = Array.from(node.querySelectorAll("[data-sortable-item]"));
-		return itemElements.indexOf(element);
+		// Get the sortable key from the element
+		const sortableKey = element.getAttribute("data-sortable-item");
+		if (!sortableKey) return -1;
+
+		// Find the index in the items array
+		return items.findIndex((item) => {
+			const key = item.uniqueKey !== undefined ? String(item.uniqueKey) : item.id;
+			return key === sortableKey;
+		});
 	}
 
 	function createPlaceholder(element: HTMLElement): HTMLElement {
@@ -243,39 +253,103 @@ export const sortable: Action<
 		draggedIndex = getItemIndex(draggedElement);
 		if (draggedIndex === -1) return;
 
+		isInternalDrag = true;
 		e.dataTransfer.effectAllowed = "move";
 		e.dataTransfer.setData("text/html", draggedElement.innerHTML);
 
-		// Create and insert placeholder
+		// Create placeholder
 		placeholder = createPlaceholder(draggedElement);
-		draggedElement.style.opacity = "0.5";
+		draggedElement.classList.add("dragging");
 	}
 
 	function handleDragOver(e: DragEvent) {
-		if (disabled || !draggedElement || !placeholder) return;
+		if (disabled) return;
 
 		e.preventDefault();
 		if (e.dataTransfer) {
-			e.dataTransfer.dropEffect = "move";
+			e.dataTransfer.dropEffect = draggedElement ? "move" : "copy";
 		}
 
-		const afterElement = getDragAfterElement(node, e.clientY);
-		if (afterElement == null) {
-			node.appendChild(placeholder);
-		} else {
-			node.insertBefore(placeholder, afterElement);
+		// Create placeholder for external drags if needed
+		if (!isInternalDrag && !placeholder && e.dataTransfer) {
+			// Check if this is an acceptable external drag
+			try {
+				const types = Array.from(e.dataTransfer.types);
+				if (types.includes("application/json")) {
+					// Create a generic placeholder for external drags
+					placeholder = document.createElement("div");
+					placeholder.className = "sortable-placeholder";
+					placeholder.style.height = "60px"; // Default height for external items
+				}
+			} catch (err) {
+				// Ignore errors when accessing dataTransfer
+			}
+		}
+
+		// Show placeholder for both internal and external drags
+		if (placeholder) {
+			const afterElement = getDragAfterElement(node, e.clientY);
+			if (afterElement == null) {
+				node.appendChild(placeholder);
+			} else {
+				node.insertBefore(placeholder, afterElement);
+			}
 		}
 	}
 
 	function handleDrop(e: DragEvent) {
-		if (disabled || !draggedElement || !placeholder) return;
+		if (disabled) return;
 
 		e.preventDefault();
 
-		const placeholderIndex = getItemIndex(placeholder);
+		// Handle internal sort
+		if (isInternalDrag && draggedElement && placeholder) {
+			// Find where to insert based on placeholder position
+			const children = Array.from(node.children);
+			const placeholderIndex = children.indexOf(placeholder);
 
-		if (draggedIndex !== -1 && placeholderIndex !== -1 && draggedIndex !== placeholderIndex) {
-			onSort(draggedIndex, placeholderIndex);
+			// Count actual items before placeholder (excluding the placeholder itself)
+			let toIndex = 0;
+			for (let i = 0; i < placeholderIndex; i++) {
+				if (children[i] !== draggedElement && children[i].hasAttribute("data-sortable-item")) {
+					toIndex++;
+				}
+			}
+
+			if (draggedIndex !== -1 && draggedIndex !== toIndex) {
+				onSort(draggedIndex, toIndex);
+			}
+		} else if (!isInternalDrag && e.dataTransfer && onDrop) {
+			// Handle external drop
+			try {
+				const dragDataStr = e.dataTransfer.getData("application/json");
+				if (dragDataStr) {
+					const dragData = JSON.parse(dragDataStr) as DragData;
+
+					// Check if we accept this type
+					if (acceptTypes && !acceptTypes.includes(dragData.type)) {
+						cleanup();
+						return;
+					}
+
+					// Find drop position based on placeholder location
+					const children = Array.from(node.children);
+					let dropIndex = 0;
+
+					for (let i = 0; i < children.length; i++) {
+						if (children[i] === placeholder) {
+							break;
+						}
+						if (children[i].hasAttribute("data-sortable-item")) {
+							dropIndex++;
+						}
+					}
+
+					onDrop(dragData, dropIndex);
+				}
+			} catch (err) {
+				console.error("Failed to parse drag data:", err);
+			}
 		}
 
 		cleanup();
@@ -285,9 +359,26 @@ export const sortable: Action<
 		cleanup();
 	}
 
+	function handleDragLeave(e: DragEvent) {
+		if (disabled) return;
+
+		// Check if we're really leaving the container
+		const rect = node.getBoundingClientRect();
+		const x = e.clientX;
+		const y = e.clientY;
+
+		if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+			// Clean up placeholder for external drags
+			if (!isInternalDrag && placeholder) {
+				placeholder.remove();
+				placeholder = null;
+			}
+		}
+	}
+
 	function cleanup() {
 		if (draggedElement) {
-			draggedElement.style.opacity = "";
+			draggedElement.classList.remove("dragging");
 			draggedElement = null;
 		}
 		if (placeholder) {
@@ -295,11 +386,12 @@ export const sortable: Action<
 			placeholder = null;
 		}
 		draggedIndex = -1;
+		isInternalDrag = false;
 	}
 
 	function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
-		const draggableElements = Array.from(
-			container.querySelectorAll("[data-sortable-item]:not(.dragging)")
+		const draggableElements = Array.from(container.querySelectorAll("[data-sortable-item]")).filter(
+			(el) => el !== draggedElement && el !== placeholder
 		) as HTMLElement[];
 
 		return draggableElements.reduce<{ offset: number; element: HTMLElement | null }>(
@@ -319,10 +411,9 @@ export const sortable: Action<
 
 	function setup() {
 		// Add sortable item attributes to children
-		items.forEach((item, index) => {
-			const element = node.children[index] as HTMLElement;
-			if (element) {
-				element.setAttribute("data-sortable-item", item.id);
+		const itemElements = Array.from(node.querySelectorAll("[data-sortable-item]"));
+		itemElements.forEach((element) => {
+			if (element instanceof HTMLElement) {
 				element.draggable = !disabled;
 			}
 		});
@@ -332,6 +423,7 @@ export const sortable: Action<
 			node.addEventListener("dragover", handleDragOver);
 			node.addEventListener("drop", handleDrop);
 			node.addEventListener("dragend", handleDragEnd);
+			node.addEventListener("dragleave", handleDragLeave);
 		}
 	}
 
@@ -340,6 +432,7 @@ export const sortable: Action<
 		node.removeEventListener("dragover", handleDragOver);
 		node.removeEventListener("drop", handleDrop);
 		node.removeEventListener("dragend", handleDragEnd);
+		node.removeEventListener("dragleave", handleDragLeave);
 		cleanup();
 	}
 
@@ -352,6 +445,8 @@ export const sortable: Action<
 			onSort = newParams?.onSort || onSort;
 			disabled = newParams?.disabled ?? disabled;
 			handle = newParams?.handle || handle;
+			onDrop = newParams?.onDrop || onDrop;
+			acceptTypes = newParams?.acceptTypes || acceptTypes;
 			setup();
 		},
 		destroy() {
