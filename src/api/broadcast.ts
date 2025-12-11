@@ -213,6 +213,7 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 			let unsubscribeCurrentRecording: (() => void) | null = null;
 			let unsubscribeEffectiveDateTime: (() => void) | null = null;
 			let unsubscribeIsPlaying: (() => void) | null = null;
+			let whiteNoiseCheckInterval: NodeJS.Timeout | null = null;
 
 			// Helper function to calculate position for a recording
 			const calculatePosition = (
@@ -268,6 +269,9 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 				const scheduledRecording = get(currentRecording);
 
 				// Check if we need to change recording
+				const isCurrentlyWhiteNoise =
+					currentlyPlayingRecording === null || currentlyPlayingRecording.id === "white-noise";
+
 				if (currentlyPlayingRecording?.id !== scheduledRecording?.id) {
 					// Emit end event for previous recording
 					if (currentlyPlayingRecording && currentlyPlayingRecording.id !== "white-noise") {
@@ -291,6 +295,17 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 							"at position:",
 							position
 						);
+
+						// If we're transitioning from white noise to a scheduled track while playing,
+						// we need to handle this specially (white noise never triggers finishedPlaying)
+						if (isCurrentlyWhiteNoise && playing) {
+							console.log("[CurrentlyPlaying] Transitioning from white noise to scheduled track");
+							// Clear the white noise check interval
+							if (whiteNoiseCheckInterval) {
+								clearInterval(whiteNoiseCheckInterval);
+								whiteNoiseCheckInterval = null;
+							}
+						}
 					} else {
 						// No recording scheduled - use white noise
 						currentlyPlayingRecording = null;
@@ -301,6 +316,20 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 							isWhiteNoise: true,
 						});
 						console.log("[CurrentlyPlaying] No track scheduled, using white noise");
+
+						// Start periodic checking for scheduled tracks when playing white noise
+						if (playing && !whiteNoiseCheckInterval) {
+							console.log("[CurrentlyPlaying] Starting white noise check interval");
+							whiteNoiseCheckInterval = setInterval(() => {
+								const scheduled = get(currentRecording);
+								if (scheduled) {
+									console.log(
+										"[CurrentlyPlaying] Scheduled track became available during white noise"
+									);
+									updateCurrentPlaying(false);
+								}
+							}, 1000); // Check every second
+						}
 					}
 				} else {
 					// Same recording, just update position
@@ -331,11 +360,15 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 
 			// Subscribe to stores
 			unsubscribeCurrentRecording = currentRecording.subscribe(() => {
-				if (!get(isPlaying)) {
-					// If not playing, always update immediately
+				const playing = get(isPlaying);
+				const isCurrentlyWhiteNoise =
+					currentlyPlayingRecording === null || currentlyPlayingRecording.id === "white-noise";
+
+				if (!playing || isCurrentlyWhiteNoise) {
+					// If not playing, or if we're playing white noise, check for scheduled tracks
 					updateCurrentPlaying(false);
 				}
-				// If playing, we wait for the finishedPlaying event
+				// If playing a regular track, we wait for the finishedPlaying event
 			});
 
 			unsubscribeEffectiveDateTime = effectiveDateTime.subscribe(() => {
@@ -361,6 +394,9 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 				if (unsubscribeCurrentRecording) unsubscribeCurrentRecording();
 				if (unsubscribeEffectiveDateTime) unsubscribeEffectiveDateTime();
 				if (unsubscribeIsPlaying) unsubscribeIsPlaying();
+				if (whiteNoiseCheckInterval) {
+					clearInterval(whiteNoiseCheckInterval);
+				}
 			};
 		}
 	);
