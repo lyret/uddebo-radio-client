@@ -1,41 +1,44 @@
 <script lang="ts">
 	import Layout from "@/components/Layout.svelte";
 	import Radio from "@/components/Radio.svelte";
+	import AdminControls from "@/components/AdminControls.svelte";
+	import { isAdmin } from "@/api";
 
 	// Player state
 	let isPlaying = false;
 	let currentTrack = {
-		title: "No track playing",
+		title: "Ingen låt spelas",
 		artist: "—",
 		coverUrl: "",
 	};
-	let instructions = "Press the power button to start listening";
+	let instructions = "Tryck på strömknappen för att börja lyssna";
 
 	// Toggle play/pause
 	function togglePlayback() {
 		isPlaying = !isPlaying;
 		if (isPlaying) {
-			instructions = "Now playing from Uddebo Radio";
+			instructions = "Nu spelar från Uddebo Radio";
 			// TODO: Start actual playback
+			// Use $effectiveDateTime to determine what content to play
+			// based on the schedule for that specific date/time
 		} else {
-			instructions = "Press the power button to start listening";
+			instructions = "Tryck på strömknappen för att börja lyssna";
 			// TODO: Stop actual playback
 		}
 	}
 </script>
 
-<Layout>
-	<div class="player-container">
-		<div class="top-margin" />
-
-		<!-- Instructions area below the radio -->
-	</div>
-</Layout>
-<Radio bind:isPlaying {currentTrack} on:click={togglePlayback} />
+<Layout />
 <footer class="has-text-centered is-flex-align-items-flex-end mt-auto">
+	<Radio bind:isPlaying {currentTrack} on:click={togglePlayback} />
 	<div class="instructions">
 		{instructions}
 	</div>
+
+	<!-- Debug area for admins -->
+	{#if $isAdmin}
+		<AdminControls />
+	{/if}
 </footer>
 
 <style>
@@ -44,20 +47,6 @@
 		left: 0;
 		bottom: 0;
 		width: 100%;
-	}
-
-	.player-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: flex-end;
-		padding: 2rem;
-	}
-
-	.top-margin {
-		height: calc(40vh + 40vw);
-		min-height: 0px;
-		max-height: 800px;
 	}
 
 	/* Instructions area */

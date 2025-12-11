@@ -41,13 +41,12 @@
 
 <style>
 	.wrapper {
-		position: fixed;
-		left: 50%;
-		top: 80%;
-		transform: translate(-50%, -80%);
+		position: relative;
+		display: block;
 		width: 800px;
 		height: 800px;
-		/*margin-top: -800px; /* Hide top 1/3 (antenna) from viewport */
+		left: 50%;
+		translate: -50%;
 	}
 
 	.radio-image {
