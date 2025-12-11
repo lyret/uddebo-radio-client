@@ -10,12 +10,16 @@
 		notifyTrackFinished,
 	} from "@/api/broadcast";
 	import { onMount, onDestroy } from "svelte";
+	import { fly } from "svelte/transition";
 
 	// Player state
 	let audioElement: HTMLAudioElement;
 	let instructions = "Tryck på strömknappen för att börja lyssna";
 	let currentTrackId: string | null = null;
 	let powerOn = false;
+
+	// Footer element reference
+	let footerElement: HTMLElement;
 
 	// Handle track changes while playing
 	$: if ($currentlyPlayingMedium && audioElement && $isPlaying) {
@@ -83,9 +87,9 @@
 
 				// Update instructions
 				if ($currentlyPlayingMedium.isWhiteNoise) {
-					instructions = "Inget program just nu - spelar vitt brus";
+					instructions = "Ingen sändning just nu";
 				} else {
-					instructions = `Nu spelar: ${$currentlyPlayingMedium.recording.title}`;
+					instructions = "";
 				}
 			}
 		} else {
@@ -122,6 +126,14 @@
 			audioElement.addEventListener("ended", handleTrackEnded);
 			audioElement.addEventListener("error", handleAudioError);
 		}
+
+		// Scroll footer to bottom smoothly
+		if (footerElement) {
+			footerElement.scrollTo({
+				top: footerElement.scrollHeight,
+				behavior: "smooth",
+			});
+		}
 	});
 
 	// Cleanup
@@ -141,7 +153,7 @@
 <!-- Hidden audio element -->
 <audio bind:this={audioElement} />
 
-<footer class="has-text-centered is-flex-align-items-flex-end mt-auto">
+<footer bind:this={footerElement} class="has-text-centered is-flex-align-items-flex-end mt-auto">
 	<Radio
 		bind:power={powerOn}
 		on:power={(e) => togglePlayback(e.detail)}
@@ -150,9 +162,11 @@
 		display2={$currentlyPlayingMedium?.recording.author}
 		display3={$nextRecording ? `Nästa: ${$nextRecording.title}` : ""}
 	/>
-	<div class="instructions">
-		{instructions}
-	</div>
+	{#if instructions}
+		<div class="instructions" transition:fly>
+			{instructions}
+		</div>
+	{/if}
 
 	<!-- Debug area for admins -->
 	{#if $isAdmin}
@@ -167,6 +181,8 @@
 		left: 0;
 		bottom: 0;
 		width: 100%;
+		max-height: 100vh;
+		overflow-y: auto;
 	}
 
 	/* Instructions area */

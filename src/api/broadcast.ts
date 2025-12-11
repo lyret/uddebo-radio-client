@@ -5,6 +5,8 @@ import { readable, derived, writable, get } from "svelte/store";
 import { effectiveDateTime } from "./datetime";
 import { supabase } from "./supabase";
 
+const DEFAULT_COVER_URL = "/default-cover.jpg";
+
 /**
  * Recording item with scheduling information
  */
@@ -105,6 +107,7 @@ function createBroadcastScheduleStore(): Readable<PlayableBroadcast> {
 						// Parse recordings with calculated dates
 						const { recordings, endTime } = await _parseRecordings(
 							data.recordings as Array<string>,
+							data,
 							startTime
 						);
 
@@ -261,6 +264,13 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 							});
 							console.log("[CurrentlyPlaying] Moved to next track:", nextRec.title);
 							return;
+						} else if (currentIndex === schedule.recordings.length - 1) {
+							// This was the last track - emit end event and continue to white noise
+							console.log("[CurrentlyPlaying] Last track finished, transitioning to white noise");
+							if (currentlyPlayingRecording) {
+								_eventEmitter.emit("recordingEnd", currentlyPlayingRecording);
+							}
+							// Don't return - let it fall through to the normal update logic
 						}
 					}
 				}
@@ -412,6 +422,7 @@ export const currentlyPlayingMedium = createCurrentlyPlayingMedium();
  */
 async function _parseRecordings(
 	recordingsIds: Array<string>,
+	program: BroadcastProgram,
 	startTime: Date
 ): Promise<{ endTime: Date; recordings: Array<PlayableRecording> }> {
 	try {
@@ -450,7 +461,7 @@ async function _parseRecordings(
 					author: recording.author || "",
 					duration: Number(recording.duration) || 0,
 					audioUrl: String(recording.file_url || ""),
-					coverUrl: recording.cover_url || "",
+					coverUrl: recording.cover_url || program.cover_url || DEFAULT_COVER_URL,
 					startTime,
 					endTime,
 				});
