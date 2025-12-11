@@ -17,11 +17,9 @@
 
 <div class="wrapper">
 	<!-- Cover image area -->
-	<div class="cover-area">
+	<div class="cover-area" class:is-on={power}>
 		{#if power && coverUrl}
 			<img src={coverUrl} alt="Album cover" class="cover-image" />
-		{:else}
-			<div class="cover-placeholder"></div>
 		{/if}
 	</div>
 
@@ -29,7 +27,7 @@
 	<div class="radio-image" />
 
 	<!-- Display area for track info -->
-	<div class="display-area">
+	<div class="display-area" class:is-on={power}>
 		{#if power}
 			<div class="display row-1">{display1 || ""}</div>
 			<div class="display row-2">{display2 || ""}</div>
@@ -73,8 +71,13 @@
 		top: 472px;
 		width: 229px;
 		height: 229px;
-		background: #000;
+		background: rgba(0, 0, 0, 0.8);
 		overflow: hidden;
+		transition: all 1s ease;
+	}
+	.cover-area.is-on {
+		background-color: rgba(0, 0, 0, 0.9);
+		box-shadow: 0 0 10px #00ff00;
 	}
 
 	.cover-image {
@@ -101,6 +104,11 @@
 		border-radius: 4px;
 		color: #00ff00;
 		font-family: monospace;
+		transition: all 1s ease;
+	}
+	.display-area.is-on {
+		background-color: rgba(0, 0, 0, 0.9);
+		box-shadow: 0 0 10px #00ff00;
 	}
 
 	.display {

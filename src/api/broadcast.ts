@@ -1,7 +1,7 @@
 import type { Readable } from "svelte/store";
 import type { BroadcastProgram } from "./supabase/types";
 import Emittery from "emittery";
-import { readable, derived } from "svelte/store";
+import { readable, derived, writable, get } from "svelte/store";
 import { effectiveDateTime } from "./datetime";
 import { supabase } from "./supabase";
 
@@ -20,6 +20,15 @@ interface PlayableRecording {
 }
 
 /**
+ * Currently playing medium with playback position
+ */
+interface CurrentlyPlaying {
+	recording: PlayableRecording;
+	currentPosition: number; // Current position in seconds
+	isWhiteNoise: boolean;
+}
+
+/**
  * Broadcast schedule state without currentRecordingIndex
  */
 interface PlayableBroadcast {
@@ -31,10 +40,30 @@ interface PlayableBroadcast {
 	error: string | null;
 }
 
-export const _eventEmitter = new Emittery<{
+const _eventEmitter = new Emittery<{
 	recordingStart: PlayableRecording;
 	recordingEnd: PlayableRecording;
+	finishedPlaying: void;
 }>();
+
+/**
+ * Store to track whether audio is currently playing
+ */
+export const isPlaying = writable(false);
+
+/**
+ * White noise placeholder recording
+ */
+const whiteNoiseRecording: PlayableRecording = {
+	id: "white-noise",
+	title: "Inget spelar",
+	author: undefined,
+	duration: 60, // 1 minute loop
+	audioUrl: "/white-noise.mp3",
+	coverUrl: undefined,
+	startTime: new Date(0),
+	endTime: new Date(0),
+};
 
 /**
  * Create the broadcast schedule store that subscribes to datetime and fetches active programs
@@ -161,40 +190,184 @@ export const nextRecording = derived(
 );
 
 /**
- * Create a store that keeps the currently playing recording or a placeholder if nothing is broadcasted
+ * Notify that the current audio has finished playing
+ * This should be called when the audio element's "ended" event fires
  */
-function createCurrentlyPlayingMedium(): Readable<PlayableRecording> {
-	let _previousRecording: PlayableRecording | null = null;
-	return derived([currentRecording], ([$currentRecording], set) => {
-		// Recording ended
-		if (
-			_previousRecording &&
-			(!$currentRecording || _previousRecording.id !== $currentRecording.id)
-		) {
-			_eventEmitter.emit("recordingEnd", _previousRecording);
-		}
-		// Recording started
-		if (
-			$currentRecording &&
-			(!_previousRecording || _previousRecording.id !== $currentRecording.id)
-		) {
-			_eventEmitter.emit("recordingStart", $currentRecording);
-			set($currentRecording);
-		} else if (!_previousRecording && !$currentRecording) {
-			set({
-				id: "",
-				title: "Inget spelar",
-				startTime: null as any,
-				endTime: null as any,
-				audioUrl: "/white-noise.mp3",
-				duration: 0,
-			});
-		}
-		_previousRecording = $currentRecording;
-	});
+export function notifyTrackFinished(): void {
+	console.log("[Broadcast] Track finished playing");
+	_eventEmitter.emit("finishedPlaying", undefined);
 }
+
 /**
- * Returns the currently playing medium
+ * Create a store that keeps the currently playing medium with playback position
+ */
+function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
+	return readable<CurrentlyPlaying>(
+		{
+			recording: whiteNoiseRecording,
+			currentPosition: 0,
+			isWhiteNoise: true,
+		},
+		(set) => {
+			let currentlyPlayingRecording: PlayableRecording | null = null;
+			let unsubscribeCurrentRecording: (() => void) | null = null;
+			let unsubscribeEffectiveDateTime: (() => void) | null = null;
+			let unsubscribeIsPlaying: (() => void) | null = null;
+
+			// Helper function to calculate position for a recording
+			const calculatePosition = (
+				recording: PlayableRecording | null,
+				effectiveTime: Date
+			): number => {
+				if (!recording || recording.id === "white-noise") {
+					// For white noise, use modulo to create a looping position
+					return (effectiveTime.getTime() / 1000) % whiteNoiseRecording.duration;
+				}
+
+				// Calculate how far into the recording we should be
+				const timeSinceStart = effectiveTime.getTime() - recording.startTime.getTime();
+				return Math.max(0, Math.min(timeSinceStart / 1000, recording.duration));
+			};
+
+			// Helper function to update the current playing state
+			const updateCurrentPlaying = (shouldCheckNext: boolean = false) => {
+				const effectiveTime = get(effectiveDateTime);
+				const playing = get(isPlaying);
+				const schedule = get(broadcastScheduleStore);
+
+				// If we should check for the next track and we're playing
+				if (shouldCheckNext && playing && schedule.recordings.length > 0) {
+					// Find the next recording after the current one
+					if (currentlyPlayingRecording && currentlyPlayingRecording.id !== "white-noise") {
+						const currentIndex = schedule.recordings.findIndex(
+							(r) => r.id === currentlyPlayingRecording!.id
+						);
+						if (currentIndex !== -1 && currentIndex < schedule.recordings.length - 1) {
+							// Move to the next recording in the schedule
+							const nextRec = schedule.recordings[currentIndex + 1];
+
+							// Emit events
+							if (currentlyPlayingRecording) {
+								_eventEmitter.emit("recordingEnd", currentlyPlayingRecording);
+							}
+							_eventEmitter.emit("recordingStart", nextRec);
+
+							currentlyPlayingRecording = nextRec;
+							set({
+								recording: nextRec,
+								currentPosition: 0, // Start from the beginning
+								isWhiteNoise: false,
+							});
+							console.log("[CurrentlyPlaying] Moved to next track:", nextRec.title);
+							return;
+						}
+					}
+				}
+
+				// Normal update based on current time
+				const scheduledRecording = get(currentRecording);
+
+				// Check if we need to change recording
+				if (currentlyPlayingRecording?.id !== scheduledRecording?.id) {
+					// Emit end event for previous recording
+					if (currentlyPlayingRecording && currentlyPlayingRecording.id !== "white-noise") {
+						_eventEmitter.emit("recordingEnd", currentlyPlayingRecording);
+					}
+
+					// Update to new recording
+					if (scheduledRecording) {
+						_eventEmitter.emit("recordingStart", scheduledRecording);
+						currentlyPlayingRecording = scheduledRecording;
+
+						const position = calculatePosition(scheduledRecording, effectiveTime);
+						set({
+							recording: scheduledRecording,
+							currentPosition: position,
+							isWhiteNoise: false,
+						});
+						console.log(
+							"[CurrentlyPlaying] Changed to scheduled track:",
+							scheduledRecording.title,
+							"at position:",
+							position
+						);
+					} else {
+						// No recording scheduled - use white noise
+						currentlyPlayingRecording = null;
+						const position = calculatePosition(null, effectiveTime);
+						set({
+							recording: whiteNoiseRecording,
+							currentPosition: position,
+							isWhiteNoise: true,
+						});
+						console.log("[CurrentlyPlaying] No track scheduled, using white noise");
+					}
+				} else {
+					// Same recording, just update position
+					const position = calculatePosition(currentlyPlayingRecording || null, effectiveTime);
+
+					if (currentlyPlayingRecording) {
+						set({
+							recording: currentlyPlayingRecording,
+							currentPosition: position,
+							isWhiteNoise: false,
+						});
+					} else {
+						set({
+							recording: whiteNoiseRecording,
+							currentPosition: position,
+							isWhiteNoise: true,
+						});
+					}
+				}
+			};
+
+			// Listen for track finished events
+			const handleTrackFinished = () => {
+				console.log("[CurrentlyPlaying] Handling track finished event");
+				updateCurrentPlaying(true);
+			};
+			_eventEmitter.on("finishedPlaying", handleTrackFinished);
+
+			// Subscribe to stores
+			unsubscribeCurrentRecording = currentRecording.subscribe(() => {
+				if (!get(isPlaying)) {
+					// If not playing, always update immediately
+					updateCurrentPlaying(false);
+				}
+				// If playing, we wait for the finishedPlaying event
+			});
+
+			unsubscribeEffectiveDateTime = effectiveDateTime.subscribe(() => {
+				// Update position but don't change tracks while playing
+				if (!get(isPlaying)) {
+					updateCurrentPlaying(false);
+				}
+			});
+
+			unsubscribeIsPlaying = isPlaying.subscribe((playing) => {
+				if (playing) {
+					// When starting to play, update to current track
+					updateCurrentPlaying(false);
+				}
+			});
+
+			// Initial update
+			updateCurrentPlaying(false);
+
+			// Cleanup
+			return () => {
+				_eventEmitter.off("finishedPlaying", handleTrackFinished);
+				if (unsubscribeCurrentRecording) unsubscribeCurrentRecording();
+				if (unsubscribeEffectiveDateTime) unsubscribeEffectiveDateTime();
+				if (unsubscribeIsPlaying) unsubscribeIsPlaying();
+			};
+		}
+	);
+}
+
+/**
+ * Returns the currently playing medium with position information
  */
 export const currentlyPlayingMedium = createCurrentlyPlayingMedium();
 
