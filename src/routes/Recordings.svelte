@@ -14,7 +14,7 @@
 	import { toast } from "svelte-sonner";
 	import type { Recording } from "@/api";
 	import Layout from "@/components/Layout.svelte";
-	import RecordingEditorModal from "@/components/RecordingEditorModal.svelte";
+	import RecordingEditorModal from "@/modals/RecordingEditorModal.svelte";
 	import { supabase } from "@/api";
 	import { getSwedishRecordingType } from "@/api/lang";
 

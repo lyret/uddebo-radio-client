@@ -14,8 +14,8 @@
 	import { toast } from "svelte-sonner";
 	import type { BroadcastProgram } from "@/api";
 	import Layout from "@/components/Layout.svelte";
-	import BroadcastProgramEditorModal from "@/components/BroadcastProgramEditorModal.svelte";
-	import ProgramRecordingsModal from "@/components/ProgramRecordingsModal.svelte";
+	import ProgramEditorModal from "@/modals/ProgramEditorModal.svelte";
+	import ProgramRecordingsModal from "@/modals/ProgramRecordingsModal.svelte";
 	import { supabase } from "@/api";
 
 	let programs: BroadcastProgram[] = [];
@@ -360,7 +360,7 @@
 	</div>
 
 	<!-- Broadcast Program Editor Modal -->
-	<BroadcastProgramEditorModal
+	<ProgramEditorModal
 		program={isCreateMode ? null : editingProgram}
 		bind:isOpen={isEditorOpen}
 		on:close={handleEditorClose}
