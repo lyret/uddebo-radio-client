@@ -20,6 +20,7 @@
 		"@supabase/supabase-js": "^2.57.0",
 		"@tanstack/svelte-query": "^5.83.0",
 		"bulma": "^0.9.4",
+		"emittery": "^1.2.0",
 		"lucide-svelte": "^0.462.0",
 		"supabase": "^2.65.7",
 		"svelte-sonner": "^0.3.0",

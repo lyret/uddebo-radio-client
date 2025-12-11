@@ -1,21 +1,25 @@
 <script lang="ts">
-	export let isPlaying = false;
-	export let currentTrack = {
-		title: "No track playing",
-		artist: "—",
-		coverUrl: "",
-	};
+	import { createEventDispatcher } from "svelte";
 
-	export function togglePlayback() {
-		isPlaying = !isPlaying;
+	export let power = false;
+	export let coverUrl: string | undefined = undefined;
+	export let display1: string | undefined = undefined;
+	export let display2: string | undefined = undefined;
+	export let display3: string | undefined = undefined;
+
+	const dispatch = createEventDispatcher<{ power: boolean }>();
+
+	export function togglePower() {
+		power = !power;
+		dispatch("power", power);
 	}
 </script>
 
 <div class="wrapper">
 	<!-- Cover image area -->
 	<div class="cover-area">
-		{#if currentTrack.coverUrl}
-			<img src={currentTrack.coverUrl} alt="Album cover" class="cover-image" />
+		{#if power && coverUrl}
+			<img src={coverUrl} alt="Album cover" class="cover-image" />
 		{:else}
 			<div class="cover-placeholder"></div>
 		{/if}
@@ -26,16 +30,19 @@
 
 	<!-- Display area for track info -->
 	<div class="display-area">
-		<div class="track-title">{currentTrack.title}</div>
-		<div class="track-artist">{currentTrack.artist}</div>
+		{#if power}
+			<div class="display row-1">{display1 || ""}</div>
+			<div class="display row-2">{display2 || ""}</div>
+			<div class="display row-3">{display3 || ""}</div>
+		{/if}
 	</div>
 
 	<!-- Power button -->
 	<button
 		class="power-button"
-		class:active={isPlaying}
-		on:click={togglePlayback}
-		aria-label={isPlaying ? "Stop radio" : "Start radio"}
+		class:active={power}
+		on:click={togglePower}
+		aria-label={power ? "Stop radio" : "Start radio"}
 	/>
 </div>
 
@@ -59,13 +66,7 @@
 		background-position: center;
 		background-size: contain;
 	}
-	/*@media screen and (orientation: portrait) {
-		.radio-image {
-			background-image: url("/radio-mobile.png");
-		}
-	}*/
 
-	/* Cover image area - positioned absolute over the radio */
 	.cover-area {
 		position: absolute;
 		left: 285px;
@@ -102,24 +103,28 @@
 		font-family: monospace;
 	}
 
-	.track-title {
-		font-size: 0.875rem;
-		font-weight: bold;
-		margin-bottom: 0.25rem;
+	.display {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-
-	.track-artist {
-		font-size: 0.75rem;
 		opacity: 0.8;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		font-weight: bold;
+	}
+	.display.row-1 {
+		font-size: 0.875rem;
+		margin-bottom: 0.25rem;
 	}
 
-	/* Power button - positioned absolute over the radio */
+	.display.row-2 {
+		font-size: 0.75rem;
+	}
+	.display.row-2 {
+		font-size: 0.75rem;
+	}
+	.display.row-3 {
+		font-size: 0.75rem;
+	}
+
 	.power-button {
 		position: absolute;
 		left: 452px;
@@ -159,11 +164,11 @@
 			padding: 0.5rem;
 		}
 
-		.track-title {
+		.display.row-1 {
 			font-size: 0.75rem;
 		}
 
-		.track-artist {
+		.display.row-2 {
 			font-size: 0.625rem;
 		}
 	}
@@ -173,11 +178,11 @@
 			padding: 0.25rem;
 		}
 
-		.track-title {
+		.display.row-1 {
 			font-size: 0.625rem;
 		}
 
-		.track-artist {
+		.display.row-2 {
 			font-size: 0.5rem;
 		}
 	}

@@ -3,34 +3,51 @@
 	import Radio from "@/components/Radio.svelte";
 	import AdminControls from "@/components/AdminControls.svelte";
 	import { isAdmin } from "@/api";
+	import { currentlyPlayingMedium } from "@/api/broadcast";
 
 	// Player state
 	let isPlaying = false;
-	let currentTrack = {
-		title: "Ingen låt spelas",
-		artist: "—",
-		coverUrl: "",
-	};
+	let audioElement: HTMLAudioElement;
 	let instructions = "Tryck på strömknappen för att börja lyssna";
 
+	// Subscribe to currentlyPlayingMedium
+	$: if ($currentlyPlayingMedium && audioElement && isPlaying) {
+		// Update audio source and play
+		audioElement.src = $currentlyPlayingMedium.audioUrl;
+		audioElement.play().catch((err) => {
+			console.error("Failed to play audio:", err);
+			instructions = "Kunde inte spela upp ljudet";
+		});
+	}
+
 	// Toggle play/pause
-	function togglePlayback() {
-		isPlaying = !isPlaying;
+	function togglePlayback(power: boolean) {
+		isPlaying = power;
 		if (isPlaying) {
 			instructions = "Nu spelar från Uddebo Radio";
-			// TODO: Start actual playback
-			// Use $effectiveDateTime to determine what content to play
-			// based on the schedule for that specific date/time
+			if (audioElement && $currentlyPlayingMedium) {
+				audioElement.src = $currentlyPlayingMedium.audioUrl;
+				audioElement.play().catch((err) => {
+					console.error("Failed to play audio:", err);
+					instructions = "Kunde inte spela upp ljudet";
+				});
+			}
 		} else {
 			instructions = "Tryck på strömknappen för att börja lyssna";
-			// TODO: Stop actual playback
+			if (audioElement) {
+				audioElement.pause();
+			}
 		}
 	}
 </script>
 
 <Layout />
+
+<!-- Hidden audio element -->
+<audio bind:this={audioElement} />
+
 <footer class="has-text-centered is-flex-align-items-flex-end mt-auto">
-	<Radio bind:isPlaying {currentTrack} on:click={togglePlayback} />
+	<Radio bind:power={isPlaying} on:power={(e) => togglePlayback(e.detail)} />
 	<div class="instructions">
 		{instructions}
 	</div>
@@ -43,6 +60,7 @@
 
 <style>
 	footer {
+		z-index: -100;
 		position: fixed;
 		left: 0;
 		bottom: 0;
