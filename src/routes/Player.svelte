@@ -1,236 +1,69 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
-	import { Play, Pause, Volume2, SkipForward, SkipBack } from "lucide-svelte";
-	import { toast } from "svelte-sonner";
 	import Layout from "@/components/Layout.svelte";
-	import type { Recording } from "@/api";
-	import { supabase } from "@/api";
+	import Radio from "@/components/Radio.svelte";
 
+	// Player state
 	let isPlaying = false;
-	let currentTime = 0;
-	let duration = 0;
-	let volume = 0.7;
-	let recordings: Recording[] = [];
-	let currentTrackIndex = 0;
-	let loading = true;
-	let audioElement: HTMLAudioElement;
+	let currentTrack = {
+		title: "No track playing",
+		artist: "—",
+		coverUrl: "",
+	};
+	let instructions = "Press the power button to start listening";
 
-	$: currentTrack = recordings[currentTrackIndex];
-
-	onMount(() => {
-		fetchRecordings();
-	});
-
-	onDestroy(() => {
-		if (audioElement) {
-			audioElement.pause();
-		}
-	});
-
-	async function fetchRecordings() {
-		try {
-			const { data, error } = await supabase
-				.from("recordings")
-				.select("*")
-				.not("okey_at", "eq", null)
-				.order("uploaded_at", { ascending: false });
-
-			if (error) throw error;
-			recordings = data || [];
-		} catch (error) {
-			toast.error("Fel vid laddning av inspelningar", {
-				description: "Kunde inte hämta spellistan",
-			});
-		} finally {
-			loading = false;
-		}
-	}
-
-	function togglePlayPause() {
-		if (!audioElement || !currentTrack) return;
-
+	// Toggle play/pause
+	function togglePlayback() {
+		isPlaying = !isPlaying;
 		if (isPlaying) {
-			audioElement.pause();
+			instructions = "Now playing from Uddebo Radio";
+			// TODO: Start actual playback
 		} else {
-			audioElement.play();
-		}
-	}
-
-	function nextTrack() {
-		if (recordings.length === 0) return;
-		currentTrackIndex = (currentTrackIndex + 1) % recordings.length;
-	}
-
-	function previousTrack() {
-		if (recordings.length === 0) return;
-		currentTrackIndex = currentTrackIndex === 0 ? recordings.length - 1 : currentTrackIndex - 1;
-	}
-
-	function handleSeek(event: Event) {
-		const input = event.target as HTMLInputElement;
-		if (audioElement) {
-			audioElement.currentTime = parseFloat(input.value);
-		}
-	}
-
-	function handleVolumeChange(event: Event) {
-		const input = event.target as HTMLInputElement;
-		volume = parseFloat(input.value);
-		if (audioElement) {
-			audioElement.volume = volume;
-		}
-	}
-
-	function formatTime(time: number): string {
-		const minutes = Math.floor(time / 60);
-		const seconds = Math.floor(time % 60);
-		return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-	}
-
-	function handleTimeUpdate() {
-		currentTime = audioElement.currentTime;
-	}
-
-	function handleLoadedMetadata() {
-		duration = audioElement.duration;
-		audioElement.volume = volume;
-	}
-
-	function handleEnded() {
-		nextTrack();
-	}
-
-	function handlePlay() {
-		isPlaying = true;
-	}
-
-	function handlePause() {
-		isPlaying = false;
-	}
-
-	// Handle track changes
-	// // TODO: this is broken:
-	$: if (audioElement && currentTrack) {
-		console.log("here");
-		audioElement.src = currentTrack.file_url;
-		if (isPlaying) {
-			audioElement.play();
+			instructions = "Press the power button to start listening";
+			// TODO: Stop actual playback
 		}
 	}
 </script>
 
 <Layout>
-	{#if loading}
-		<div class="has-text-centered p-6">
-			<div class="button is-loading is-large is-ghost"></div>
-			<p class="mt-4">Laddar inspelningar...</p>
-		</div>
-	{:else if recordings.length === 0}
-		<div class="notification is-warning has-text-centered">
-			<h3 class="title is-5">Inga inspelningar tillgängliga</h3>
-			<p>Ladda upp några inspelningar för att starta radion!</p>
-		</div>
-	{:else}
-		<div>
-			<audio
-				bind:this={audioElement}
-				on:load={handleLoadedMetadata}
-				on:timeupdate={handleTimeUpdate}
-				on:ended={handleEnded}
-				on:play={handlePlay}
-				on:pause={handlePause}
-			/>
+	<div class="player-container">
+		<div class="top-margin" />
 
-			<!-- Track Info -->
-			<div class="has-text-centered mb-5">
-				<h2 class="title is-4">
-					{currentTrack?.title || "Namnlös inspelning"}
-				</h2>
-				{#if currentTrack?.author}
-					<p class="subtitle is-6">{currentTrack.author}</p>
-				{/if}
-			</div>
-
-			<!-- Progress Bar -->
-			<div class="mb-5">
-				<progress class="progress is-primary" value={currentTime} max={duration}></progress>
-				<div class="columns is-mobile">
-					<div class="column">
-						<small>{formatTime(currentTime)}</small>
-					</div>
-					<div class="column has-text-right">
-						<small>{formatTime(duration)}</small>
-					</div>
-				</div>
-				<input
-					type="range"
-					min="0"
-					max={duration}
-					value={currentTime}
-					on:input={handleSeek}
-					class="slider is-fullwidth"
-				/>
-			</div>
-
-			<!-- Controls -->
-			<div class="buttons has-addons is-centered mb-5">
-				<button class="button is-medium" on:click={previousTrack} disabled={recordings.length <= 1}>
-					<span class="icon">
-						<SkipBack size={20} />
-					</span>
-				</button>
-
-				<button
-					class="button is-primary is-medium is-rounded"
-					on:click={togglePlayPause}
-					disabled={!currentTrack}
-				>
-					<span class="icon is-large">
-						{#if isPlaying}
-							<Pause size={28} />
-						{:else}
-							<Play size={28} />
-						{/if}
-					</span>
-				</button>
-
-				<button class="button is-medium" on:click={nextTrack} disabled={recordings.length <= 1}>
-					<span class="icon">
-						<SkipForward size={20} />
-					</span>
-				</button>
-			</div>
-
-			<!-- Volume Control -->
-			<div class="field is-horizontal">
-				<div class="field-label is-small">
-					<span class="label">
-						<span class="icon">
-							<Volume2 size={20} />
-						</span>
-					</span>
-				</div>
-				<div class="field-body">
-					<div class="field">
-						<input
-							type="range"
-							min="0"
-							max="1"
-							step="0.1"
-							value={volume}
-							on:input={handleVolumeChange}
-							class="slider is-fullwidth"
-						/>
-					</div>
-				</div>
-			</div>
-
-			<!-- Playlist Info -->
-			<div class="has-text-centered">
-				<small class="has-text-grey">
-					Spår {currentTrackIndex + 1} av {recordings.length}
-				</small>
-			</div>
-		</div>
-	{/if}
+		<!-- Instructions area below the radio -->
+	</div>
 </Layout>
+<Radio bind:isPlaying {currentTrack} on:click={togglePlayback} />
+<footer class="has-text-centered is-flex-align-items-flex-end mt-auto">
+	<div class="instructions">
+		{instructions}
+	</div>
+</footer>
+
+<style>
+	footer {
+		position: fixed;
+		left: 0;
+		bottom: 0;
+		width: 100%;
+	}
+
+	.player-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+		padding: 2rem;
+	}
+
+	.top-margin {
+		height: calc(40vh + 40vw);
+		min-height: 0px;
+		max-height: 800px;
+	}
+
+	/* Instructions area */
+	.instructions {
+		margin-top: 2rem;
+		margin-bottom: 2rem;
+		text-align: center;
+	}
+</style>
