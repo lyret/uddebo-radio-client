@@ -17,15 +17,12 @@
 	import RecordingEditorModal from "@/modals/RecordingEditorModal.svelte";
 	import { supabase } from "@/api";
 	import { getSwedishRecordingType } from "@/api/lang";
+	import { recordingsUIState } from "@/api/ui";
 
 	let recordings: Recording[] = [];
 	let loading = true;
-	let sortField: keyof Recording = "edited_at";
-	let sortOrder: "asc" | "desc" = "desc";
 	let playingId: string | null = null;
 	let audioElement: HTMLAudioElement;
-	let filterStatus: "ok" | "not_ok" | "all" = "ok";
-	let filterType: string = "all";
 	let editingRecording: Recording | null = null;
 	let isEditorOpen = false;
 	// All possible recording types with Swedish labels
@@ -52,20 +49,20 @@
 			let query = supabase.from("recordings").select("*");
 
 			// Apply filter based on okey_at status
-			if (filterStatus === "ok") {
+			if ($recordingsUIState.filterStatus === "ok") {
 				query = query.not("okey_at", "is", null);
-			} else if (filterStatus === "not_ok") {
+			} else if ($recordingsUIState.filterStatus === "not_ok") {
 				query = query.is("okey_at", null);
 			}
 			// 'all' shows everything without filter
 
 			// Apply type filter
-			if (filterType !== "all") {
-				query = query.eq("type", filterType);
+			if ($recordingsUIState.filterType !== "all") {
+				query = query.eq("type", $recordingsUIState.filterType);
 			}
 
-			const { data, error } = await query.order(sortField, {
-				ascending: sortOrder === "asc",
+			const { data, error } = await query.order($recordingsUIState.sortField, {
+				ascending: $recordingsUIState.sortOrder === "asc",
 			});
 
 			if (error) throw error;
@@ -79,11 +76,16 @@
 	}
 
 	function sortBy(field: keyof Recording) {
-		if (sortField === field) {
-			sortOrder = sortOrder === "asc" ? "desc" : "asc";
+		if ($recordingsUIState.sortField === field) {
+			$recordingsUIState.sortOrder = $recordingsUIState.sortOrder === "asc" ? "desc" : "asc";
 		} else {
-			sortField = field;
-			sortOrder = "asc";
+			$recordingsUIState.sortField = field as
+				| "edited_at"
+				| "title"
+				| "author"
+				| "type"
+				| "duration";
+			$recordingsUIState.sortOrder = "asc";
 		}
 		loadRecordings();
 	}
@@ -100,10 +102,10 @@
 	}
 
 	$: getSortIcon = (field: keyof Recording) => {
-		if (sortField !== field) {
+		if ($recordingsUIState.sortField !== field) {
 			return null;
 		}
-		return sortOrder === "asc" ? ChevronUp : ChevronDown;
+		return $recordingsUIState.sortOrder === "asc" ? ChevronUp : ChevronDown;
 	};
 
 	function togglePlay(recording: Recording) {
@@ -135,21 +137,21 @@
 		const detail = event.detail;
 
 		// If status changed and we're filtering by status (not "all")
-		if (detail?.changedStatus && filterStatus !== "all") {
+		if (detail?.changedStatus && $recordingsUIState.filterStatus !== "all") {
 			// If changed to "ok" and we're showing "not_ok", switch to "ok"
-			if (detail.newStatus === "ok" && filterStatus === "not_ok") {
-				filterStatus = "ok";
+			if (detail.newStatus === "ok" && $recordingsUIState.filterStatus === "not_ok") {
+				$recordingsUIState.filterStatus = "ok";
 			}
 			// If changed to "not_ok" and we're showing "ok", switch to "not_ok"
-			else if (detail.newStatus === "not_ok" && filterStatus === "ok") {
-				filterStatus = "not_ok";
+			else if (detail.newStatus === "not_ok" && $recordingsUIState.filterStatus === "ok") {
+				$recordingsUIState.filterStatus = "not_ok";
 			}
 		}
 
 		// If type changed and we're filtering by a specific type
-		if (detail?.changedType && filterType !== "all") {
+		if (detail?.changedType && $recordingsUIState.filterType !== "all") {
 			// Reset type filter to "all" since the recording's type changed
-			filterType = detail.changedType;
+			$recordingsUIState.filterType = detail.changedType;
 		}
 
 		loadRecordings();
@@ -174,7 +176,7 @@
 					</div>
 					<div class="control">
 						<div class="select">
-							<select bind:value={filterStatus} on:change={loadRecordings}>
+							<select bind:value={$recordingsUIState.filterStatus} on:change={loadRecordings}>
 								<option value="ok">OK</option>
 								<option value="not_ok">Ej OK</option>
 								<option value="all">Alla</option>
@@ -186,7 +188,7 @@
 					</div>
 					<div class="control">
 						<div class="select">
-							<select bind:value={filterType} on:change={loadRecordings}>
+							<select bind:value={$recordingsUIState.filterType} on:change={loadRecordings}>
 								<option value="all">Alla typer</option>
 								{#each recordingTypes as type}
 									<option value={type.value}>{type.label}</option>

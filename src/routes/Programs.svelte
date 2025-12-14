@@ -17,11 +17,10 @@
 	import ProgramEditorModal from "@/modals/ProgramEditorModal.svelte";
 	import ProgramRecordingsModal from "@/modals/ProgramRecordingsModal.svelte";
 	import { supabase } from "@/api";
+	import { programsUIState } from "@/api/ui";
 
 	let programs: BroadcastProgram[] = [];
 	let loading = true;
-	let sortField: keyof BroadcastProgram = "start_time";
-	let sortOrder: "asc" | "desc" = "asc";
 	let editingProgram: BroadcastProgram | null = null;
 	let isEditorOpen = false;
 	let isCreateMode = false;
@@ -40,8 +39,8 @@
 			const { data, error } = await supabase
 				.from("broadcast_programs")
 				.select("*")
-				.order(sortField, {
-					ascending: sortOrder === "asc",
+				.order($programsUIState.sortField, {
+					ascending: $programsUIState.sortOrder === "asc",
 				});
 
 			if (error) throw error;
@@ -55,11 +54,11 @@
 	}
 
 	function sortBy(field: keyof BroadcastProgram) {
-		if (sortField === field) {
-			sortOrder = sortOrder === "asc" ? "desc" : "asc";
+		if ($programsUIState.sortField === field) {
+			$programsUIState.sortOrder = $programsUIState.sortOrder === "asc" ? "desc" : "asc";
 		} else {
-			sortField = field;
-			sortOrder = "asc";
+			$programsUIState.sortField = field as "start_time" | "title" | "edited_at";
+			$programsUIState.sortOrder = "asc";
 		}
 		loadPrograms();
 	}
@@ -119,10 +118,10 @@
 	}
 
 	$: getSortIcon = (field: keyof BroadcastProgram) => {
-		if (sortField !== field) {
+		if ($programsUIState.sortField !== field) {
 			return null;
 		}
-		return sortOrder === "asc" ? ChevronUp : ChevronDown;
+		return $programsUIState.sortOrder === "asc" ? ChevronUp : ChevronDown;
 	};
 
 	function openEditor(program: BroadcastProgram | null) {
