@@ -14,24 +14,24 @@ const recordingTypeToSwedish: Record<RecordingType, string> = {
 	comedy: "Komedi",
 	talkshow: "Pratshow",
 	interview: "Intervju",
-	other: "Övrigt"
+	other: "Övrigt",
 };
 
 /**
  * Reverse mapping from Swedish to RecordingType enum values
  */
 const swedishToRecordingType: Record<string, RecordingType> = {
-	"Okänd": "unknown",
-	"Jingel": "jingle",
-	"Poesi": "poetry",
-	"Musik": "music",
-	"Nyheter": "news",
-	"Kommentar": "commentary",
-	"Tal": "talk",
-	"Komedi": "comedy",
-	"Pratshow": "talkshow",
-	"Intervju": "interview",
-	"Övrigt": "other"
+	Okänd: "unknown",
+	Jingel: "jingle",
+	Poesi: "poetry",
+	Musik: "music",
+	Nyheter: "news",
+	Kommentar: "commentary",
+	Tal: "talk",
+	Komedi: "comedy",
+	Pratshow: "talkshow",
+	Intervju: "interview",
+	Övrigt: "other",
 };
 
 /**
@@ -39,8 +39,8 @@ const swedishToRecordingType: Record<string, RecordingType> = {
  * @param type - The RecordingType enum value to translate
  * @returns The Swedish translation of the recording type
  */
-export function getSwedishRecordingType(type: RecordingType): string {
-	return recordingTypeToSwedish[type];
+export function getSwedishRecordingType(type: string): string {
+	return recordingTypeToSwedish[type as any as RecordingType] || "Okänd";
 }
 
 /**
@@ -59,6 +59,6 @@ export function getRecordingTypeFromSwedish(swedish: string): RecordingType {
 export function getAllSwedishRecordingTypes(): Array<{ value: RecordingType; label: string }> {
 	return Object.entries(recordingTypeToSwedish).map(([value, label]) => ({
 		value: value as RecordingType,
-		label
+		label,
 	}));
 }

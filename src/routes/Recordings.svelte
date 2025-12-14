@@ -210,7 +210,12 @@
 			</div>
 		{:else if recordings.length === 0}
 			<div class="notification is-info is-light">
-				<p>Inga inspelningar hittades. Ladda upp några inspelningar för att komma igång!</p>
+				<p>
+					Inga {$recordingsUIState.filterStatus == "not_ok" ? "ej godkända" : "ok"} inspelningar {$recordingsUIState.filterType ==
+					"all"
+						? ""
+						: "av typen " + getSwedishRecordingType($recordingsUIState.filterType)} hittades.
+				</p>
 			</div>
 		{:else}
 			<div class="table-container">
