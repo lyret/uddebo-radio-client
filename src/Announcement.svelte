@@ -1,5 +1,8 @@
 <script>
-	import { Upload, Radio } from "lucide-svelte";
+	import { Upload, Radio, X } from "lucide-svelte";
+	import UploadForm from "./components/UploadForm.svelte";
+
+	let showUploadForm = false;
 </script>
 
 <section class="section">
@@ -32,12 +35,12 @@
 								inspelning direkt här på hemsidan.
 							</p>
 							<div class="has-text-centered">
-								<a href="/upload" class="button is-info is-medium">
+								<button class="button is-info is-medium" on:click={() => (showUploadForm = true)}>
 									<span class="icon">
 										<Upload />
 									</span>
 									<span>Ladda upp din inspelning här</span>
-								</a>
+								</button>
 							</div>
 						</div>
 
@@ -77,8 +80,29 @@
 	</div>
 </section>
 
+{#if showUploadForm}
+	<div class="modal is-active">
+		<div class="modal-background" on:click={() => (showUploadForm = false)}></div>
+		<div class="modal-card" style="width: 90%; max-width: 900px;">
+			<header class="modal-card-head">
+				<p class="modal-card-title">Ladda upp inspelning</p>
+				<button class="delete" aria-label="close" on:click={() => (showUploadForm = false)}
+				></button>
+			</header>
+			<section class="modal-card-body">
+				<UploadForm />
+			</section>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.notification {
 		margin: 2rem 0;
+	}
+
+	.modal-card-body {
+		overflow-y: auto;
+		max-height: calc(100vh - 200px);
 	}
 </style>
