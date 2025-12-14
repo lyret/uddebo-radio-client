@@ -1,3 +1,7 @@
+<script>
+	import { Upload, Radio } from "lucide-svelte";
+</script>
+
 <section class="section">
 	<div class="container">
 		<div class="columns is-centered">
@@ -7,30 +11,74 @@
 						<img src="/ur.png" alt="UR Logo" style="max-height: 100px; width: auto;" />
 					</div>
 					<div class="content is-large has-text-left">
+						<h3 class="title is-4 has-text-centered mb-5 has-text-danger">
+							<span class="icon">
+								<Radio />
+							</span>
+							Uddebo Radio sänder på julafton!
+						</h3>
 						<p>
-							Uddebo radio sänder här (radio.uddebo.se) kl 11 på julafton. Programmet sätts ihop av,
-							intervjuer, musik, sagor, julhälsningar osv skapade av dig! Skicka en
-							ljudfil/inspelning till mig (Viktor) eller kom & låna mikrofon från Uddebo Makerspace
-							på Väveriet.
+							Vi sänder här på <strong>radio.uddebo.se kl 11 på julafton</strong>. Programmet sätts
+							ihop av intervjuer, musik, sagor, julhälsningar och annat innehåll skapat av dig och
+							andra Uddebobor!
 						</p>
-						<p>
-							Med vänlig hälsning<br />
-							<br />
-							Viktor
+
+						<div class="notification is-info is-light is-rounded">
+							<h3 class="title is-4 mb-3">
+								Ladda upp ditt bidrag till <b class="has-text-danger">Julsändningen</b> ❄️🎄
+							</h3>
+							<p class="mb-3">
+								Det är väldigt enklat att bidra med ditt innehåll till julshown. Ladda upp din
+								inspelning direkt här på hemsidan.
+							</p>
+							<div class="has-text-centered">
+								<a href="/upload" class="button is-info is-medium">
+									<span class="icon">
+										<Upload />
+									</span>
+									<span>Ladda upp din inspelning här</span>
+								</a>
+							</div>
+						</div>
+
+						<p class="mt-5">
+							<strong>Andra sätt att bidra:</strong>
 						</p>
 						<ul>
-							<li><a href="mailto:viktor@lyresten.se">viktor@lyresten.se</a></li>
+							<li>Kom och låna mikrofon från Uddebo Makerspace på Väveriet</li>
+							<li>Skicka din ljudfil direkt till oss på något vis</li>
+						</ul>
+
+						<hr />
+
+						<p>
+							<strong>Exempelvis, kontakta Viktor:</strong>
+						</p>
+						<ul>
+							<li>E-post: <a href="mailto:viktor@lyresten.se">viktor@lyresten.se</a></li>
 							<li>
 								<a
 									href="https://signal.me/#eu/2LVEiN8QuJZRw76g8No6y5MfO_IxfmU0llRdnZ5o5FP4_5MACkhGR5uv1VsuJESJ"
 									>Signal</a
 								>
 							</li>
-							<li><a href="https://www.facebook.com/viktorlyresten/">FB</a></li>
+							<li><a href="https://www.facebook.com/viktorlyresten/">Facebook</a></li>
 						</ul>
+
+						<p class="mt-5">
+							Med vänlig hälsning<br />
+							<br />
+							<strong>Uddebo Radio teamet</strong>
+						</p>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 </section>
+
+<style>
+	.notification {
+		margin: 2rem 0;
+	}
+</style>
