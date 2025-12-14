@@ -4,7 +4,7 @@
 	import { supabase } from "@/api";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
 	import type { RecordingType } from "@/api/supabase/types";
-	import { getFilenameWithDate } from "@/api/utils/filename";
+	import { getFilenameWithDate } from "@/api";
 
 	let uploading = false;
 	let selectedFile: File | null = null;
@@ -227,8 +227,8 @@
 	<div class="notification is-info is-light">
 		<div class="content">
 			<p>
-				<strong>Välkommen!</strong> Här kan du ladda upp din egen musik eller andra ljudinspelningar
-				till Uddebo Radio. Alla uppladdningar granskas innan de spelas i radion.
+				<strong>Välkommen!</strong> Här kan du ladda upp din egen musik eller andra ljudinspelningar till
+				Uddebo Radio. Alla uppladdningar granskas innan de spelas i radion.
 			</p>
 		</div>
 	</div>
@@ -260,8 +260,7 @@
 			</div>
 			{#if selectedFile}
 				<div class="notification is-light mt-3">
-					<button type="button" class="delete" on:click={removeFile} disabled={uploading}
-					></button>
+					<button type="button" class="delete" on:click={removeFile} disabled={uploading}></button>
 					<div class="media">
 						<div class="media-left">
 							<span class="icon has-text-primary">
