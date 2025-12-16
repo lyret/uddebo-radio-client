@@ -16,6 +16,7 @@
 		trimAudioFile,
 		formatFileSize,
 	} from "@/api";
+	import { normalizeRecordingAudio } from "@/api/audioNormalization";
 	import AudioPlayer from "@/components/recording/AudioPlayer.svelte";
 	import RecordingInformationForm from "@/components/recording/RecordingInformationForm.svelte";
 	import RecordingMetadata from "@/components/recording/RecordingMetadata.svelte";
@@ -42,6 +43,7 @@
 	let uploading = false;
 	let uploadingCover = false;
 	let uploadingCaptions = false;
+	let normalizingAudio = false;
 
 	// Key to force AudioPlayer remount
 	let audioPlayerKey = 0;
@@ -345,6 +347,27 @@
 		}
 	}
 
+	async function handleVolumeNormalize(event: CustomEvent) {
+		if (!recording || !recording.file_url) return;
+
+		const options = event.detail;
+		if (options.gainDb === 0 && !options.useCompression && !options.useLeveling) return; // No adjustment needed
+
+		normalizingAudio = true;
+		try {
+			const { data } = await normalizeRecordingAudio(recording, options);
+
+			if (data) {
+				recording = data;
+				// Force AudioPlayer to remount with new audio URL
+				audioPlayerKey++;
+				dispatch("updated", { recording: data });
+			}
+		} finally {
+			normalizingAudio = false;
+		}
+	}
+
 	async function handleTrim(event: CustomEvent<{ start: number; end: number }>) {
 		if (!recording) return;
 
@@ -406,8 +429,10 @@
 									audioUrl={recording.file_url}
 									enableTrimming={true}
 									enableReplacement={true}
+									enableVolumeControl={true}
 									on:trim={handleTrim}
 									on:replace={handleReplace}
+									on:normalize={handleVolumeNormalize}
 								/>
 							{/key}
 						</div>

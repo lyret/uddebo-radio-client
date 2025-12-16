@@ -8,6 +8,7 @@ export * from "./supabase";
 export * from "./ui";
 export * from "./recordingOperations";
 export * from "./audioProcessing";
+export * from "./audioNormalization";
 export * from "./fileUpload";
 export * from "./batchUpload";
 export * from "./audioMetadata";

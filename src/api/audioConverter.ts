@@ -69,11 +69,7 @@ export async function convertAudioToMp3(
 	audioFile: File,
 	options: AudioConversionOptions = {}
 ): Promise<AudioConversionResult> {
-	const {
-		bitrate = 128,
-		sampleRate = 44100,
-		showProgress = true
-	} = options;
+	const { bitrate = 128, sampleRate = 44100, showProgress = true } = options;
 
 	try {
 		if (showProgress) {
@@ -110,7 +106,7 @@ export async function convertAudioToMp3(
 			// Convert float32 to int16
 			for (let i = 0; i < floatData.length; i++) {
 				const sample = Math.max(-1, Math.min(1, floatData[i]));
-				int16Data[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+				int16Data[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
 			}
 
 			channelData.push(int16Data);
@@ -130,7 +126,8 @@ export async function convertAudioToMp3(
 
 		for (let i = 0; i < length; i += blockSize) {
 			const leftChunk = channelData[0].subarray(i, Math.min(i + blockSize, length));
-			const rightChunk = channels > 1 ? channelData[1].subarray(i, Math.min(i + blockSize, length)) : undefined;
+			const rightChunk =
+				channels > 1 ? channelData[1].subarray(i, Math.min(i + blockSize, length)) : undefined;
 
 			let mp3buf: Int8Array;
 			if (channels === 2 && rightChunk) {
@@ -179,14 +176,14 @@ export async function convertAudioToMp3(
 			originalFile: {
 				name: audioFile.name,
 				size: audioFile.size,
-				type: audioFile.type
-			}
+				type: audioFile.type,
+			},
 		};
 	} catch (error) {
 		if (showProgress) {
 			toast.error("Konvertering misslyckades", {
 				id: "audio-conversion",
-				description: error instanceof Error ? error.message : "Ett okänt fel uppstod"
+				description: error instanceof Error ? error.message : "Ett okänt fel uppstod",
 			});
 		}
 		throw error;
@@ -210,6 +207,26 @@ export function needsAudioConversion(file: File): boolean {
 }
 
 /**
+ * Converts a Blob (such as WAV from audio processing) to MP3
+ * @param blob The audio blob to convert
+ * @param fileName Optional filename for the resulting file
+ * @returns The converted MP3 blob
+ */
+export async function convertAudioToMp3FromBlob(
+	blob: Blob,
+	fileName: string = "audio.mp3"
+): Promise<Blob> {
+	// Create a File from the Blob to use existing conversion
+	const tempFile = new File([blob], "temp_audio.wav", { type: blob.type });
+
+	// Convert using existing function
+	const result = await convertAudioToMp3(tempFile, { showProgress: false });
+
+	// Return just the blob
+	return new Blob([result.file], { type: "audio/mp3" });
+}
+
+/**
  * Gets a human-readable description of the audio format
  * @param file The audio file
  * @returns Format description
@@ -217,17 +234,17 @@ export function needsAudioConversion(file: File): boolean {
 export function getAudioFormatDescription(file: File): string {
 	const extension = file.name.split(".").pop()?.toLowerCase() || "unknown";
 	const formats: Record<string, string> = {
-		"mp3": "MP3",
-		"wav": "WAV",
-		"m4a": "M4A/AAC",
-		"ogg": "OGG Vorbis",
-		"webm": "WebM",
-		"flac": "FLAC",
-		"aac": "AAC",
-		"opus": "Opus",
-		"wma": "WMA",
-		"aiff": "AIFF",
-		"mp4": "MP4 Audio"
+		mp3: "MP3",
+		wav: "WAV",
+		m4a: "M4A/AAC",
+		ogg: "OGG Vorbis",
+		webm: "WebM",
+		flac: "FLAC",
+		aac: "AAC",
+		opus: "Opus",
+		wma: "WMA",
+		aiff: "AIFF",
+		mp4: "MP4 Audio",
 	};
 
 	return formats[extension] || extension.toUpperCase();
@@ -244,7 +261,19 @@ export function validateAudioFile(file: File, maxSizeMB = 50): string | null {
 	if (!file.type.startsWith("audio/") && !file.type.startsWith("video/")) {
 		// Check extension as fallback
 		const extension = file.name.split(".").pop()?.toLowerCase();
-		const audioExtensions = ["mp3", "wav", "m4a", "ogg", "webm", "flac", "aac", "opus", "wma", "aiff", "mp4"];
+		const audioExtensions = [
+			"mp3",
+			"wav",
+			"m4a",
+			"ogg",
+			"webm",
+			"flac",
+			"aac",
+			"opus",
+			"wma",
+			"aiff",
+			"mp4",
+		];
 		if (!extension || !audioExtensions.includes(extension)) {
 			return "Vänligen välj en ljudfil";
 		}
