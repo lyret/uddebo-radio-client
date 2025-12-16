@@ -28,42 +28,6 @@
 	let footerElement: HTMLElement;
 
 	/**
-	 * Calculate total program duration and current cumulative position
-	 */
-	function calculateProgramProgress() {
-		if (!$broadcastScheduleStore || !$broadcastScheduleStore.recordings.length) {
-			return { totalDuration: 0, cumulativePosition: 0 };
-		}
-
-		// Calculate total duration of all recordings in the program
-		const totalDuration = $broadcastScheduleStore.recordings.reduce(
-			(total, recording) => total + recording.duration,
-			0
-		);
-
-		// Find cumulative position (time elapsed up to current track + position in current track)
-		let cumulativePosition = 0;
-
-		if ($currentlyPlayingMedium && !$currentlyPlayingMedium.isWhiteNoise) {
-			// Find the index of the current track
-			const currentIndex = $broadcastScheduleStore.recordings.findIndex(
-				(r) => r.id === $currentlyPlayingMedium.recording.id
-			);
-
-			if (currentIndex >= 0) {
-				// Add duration of all previous tracks
-				for (let i = 0; i < currentIndex; i++) {
-					cumulativePosition += $broadcastScheduleStore.recordings[i].duration;
-				}
-				// Add current position in the current track
-				cumulativePosition += $currentlyPlayingMedium.currentPosition;
-			}
-		}
-
-		return { totalDuration, cumulativePosition };
-	}
-
-	/**
 	 * Updates the browser document title based on playback state
 	 */
 	function updateBrowserTitle() {
@@ -96,7 +60,7 @@
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: $currentlyPlayingMedium.recording.title || "Uddebo Radio",
 				artist: $currentlyPlayingMedium.recording.author || "",
-				album: "Uddebo Radio",
+				album: "Uddebo Radio LIVE",
 				artwork: $currentlyPlayingMedium.recording.coverUrl
 					? [
 							{
@@ -125,47 +89,14 @@
 
 			// Set playback state
 			navigator.mediaSession.playbackState = $isPlaying ? "playing" : "paused";
-
-			// Calculate and set position state using program progress
-			const { totalDuration, cumulativePosition } = calculateProgramProgress();
-
-			if (totalDuration > 0) {
-				try {
-					navigator.mediaSession.setPositionState({
-						duration: totalDuration,
-						playbackRate: 1,
-						position: cumulativePosition,
-					});
-					console.log(
-						"[Player] Set position state - Total:",
-						totalDuration,
-						"Position:",
-						cumulativePosition
-					);
-				} catch (e) {
-					console.warn("[Player] Could not set position state:", e);
-				}
-			}
 		} else {
 			// For white noise or no content - don't show position
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: "Ingen sändning",
 				artist: "",
-				album: "Uddebo Radio",
+				album: "Uddebo Radio LIVE",
 			});
 			navigator.mediaSession.playbackState = $isPlaying ? "playing" : "paused";
-
-			// For white noise, we use Infinity to indicate it's not a regular track
-			try {
-				navigator.mediaSession.setPositionState({
-					duration: Infinity,
-					playbackRate: 1,
-					position: 0,
-				});
-			} catch (e) {
-				// Some browsers don't support Infinity, just skip setting position
-				console.log("[Player] Browser doesn't support Infinity duration for white noise");
-			}
 		}
 
 		// Set up action handlers
@@ -199,39 +130,6 @@
 			updateBrowserTitle();
 		} else if (!$isPlaying) {
 			updateBrowserTitle();
-		}
-	}
-
-	// Reactive statement to update media session position periodically while playing
-	let positionUpdateInterval: number | null = null;
-	$: {
-		if ($isPlaying && $currentlyPlayingMedium && !$currentlyPlayingMedium.isWhiteNoise) {
-			// Update position every second while playing
-			if (!positionUpdateInterval) {
-				positionUpdateInterval = setInterval(() => {
-					if (
-						"mediaSession" in navigator &&
-						$currentlyPlayingMedium &&
-						!$currentlyPlayingMedium.isWhiteNoise
-					) {
-						const { totalDuration, cumulativePosition } = calculateProgramProgress();
-						if (totalDuration > 0) {
-							try {
-								navigator.mediaSession.setPositionState({
-									duration: totalDuration,
-									playbackRate: 1,
-									position: cumulativePosition,
-								});
-							} catch (e) {
-								// Silently ignore position update errors
-							}
-						}
-					}
-				}, 1000);
-			}
-		} else if (positionUpdateInterval) {
-			clearInterval(positionUpdateInterval);
-			positionUpdateInterval = null;
 		}
 	}
 
@@ -382,11 +280,7 @@
 			audioElement.removeEventListener("error", handleAudioError);
 			audioElement.pause();
 		}
-		// Clear position update interval
-		if (positionUpdateInterval) {
-			clearInterval(positionUpdateInterval);
-			positionUpdateInterval = null;
-		}
+
 		// Clear media session
 		if ("mediaSession" in navigator) {
 			navigator.mediaSession.metadata = null;
