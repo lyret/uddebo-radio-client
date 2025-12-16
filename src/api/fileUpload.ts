@@ -88,18 +88,14 @@ export async function uploadCaptionsFile(
 		const fileName = `${recordingId}_${timestamp}${fileExt}`;
 
 		// Upload to storage
-		const { error: uploadError } = await supabase.storage
-			.from("recordings")
-			.upload(`captions/${fileName}`, file, {
-				contentType: file.type || "text/plain",
-			});
+		const { error: uploadError } = await supabase.storage.from("captions").upload(fileName, file, {
+			contentType: file.type || "text/plain",
+		});
 
 		if (uploadError) throw uploadError;
 
 		// Get public URL
-		const { data: urlData } = supabase.storage
-			.from("recordings")
-			.getPublicUrl(`captions/${fileName}`);
+		const { data: urlData } = supabase.storage.from("captions").getPublicUrl(fileName);
 
 		return { url: urlData.publicUrl, error: null };
 	} catch (error) {

@@ -85,7 +85,9 @@ export async function uploadBatchItem(
 ): Promise<UploadResult> {
 	try {
 		// Get current user
-		const { data: { user } } = await supabase.auth.getUser();
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
 
 		// Report initial progress
 		onProgress?.(10);
@@ -94,7 +96,7 @@ export async function uploadBatchItem(
 		const uploadResult = await uploadAudioFile({
 			file: item.file,
 			bucket: "recordings",
-			folder: `batch/${item.id}`,
+			folder: "",
 			showProgress: false,
 			autoConvert: true,
 			maxSizeMB: 50,
@@ -229,8 +231,11 @@ export function filterItemsByStatus(
  * Counts items by status
  */
 export function countItemsByStatus(items: UploadItem[]): Record<UploadItem["status"], number> {
-	return items.reduce((acc, item) => {
-		acc[item.status] = (acc[item.status] || 0) + 1;
-		return acc;
-	}, {} as Record<UploadItem["status"], number>);
+	return items.reduce(
+		(acc, item) => {
+			acc[item.status] = (acc[item.status] || 0) + 1;
+			return acc;
+		},
+		{} as Record<UploadItem["status"], number>
+	);
 }

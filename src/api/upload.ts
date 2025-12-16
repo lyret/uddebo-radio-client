@@ -113,17 +113,10 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
 			URL.revokeObjectURL(audio.src);
 		}
 
-		// Get authenticated user
-		const {
-			data: { user },
-		} = await supabase.auth.getUser();
-		const userFolder = user?.id || "anonymous";
-
 		// Generate file path
 		const fileExt = fileToUpload.name.split(".").pop();
 		const timestamp = Date.now();
-		const folderPath = folder ? `${userFolder}/${folder}` : userFolder;
-		const fileName = `${folderPath}/${timestamp}.${fileExt}`;
+		const fileName = `${timestamp}.${fileExt}`;
 
 		if (showProgress) {
 			toast.loading("Laddar upp ljudfil...", { id: "audio-upload" });
@@ -175,8 +168,8 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
  */
 export async function uploadCoverImage(
 	file: File,
-	bucket = "recordings",
-	folder = "covers"
+	bucket = "cover_images",
+	folder = ""
 ): Promise<string> {
 	// Validate image file
 	if (!file.type.startsWith("image/")) {
@@ -188,16 +181,10 @@ export async function uploadCoverImage(
 		throw new Error("Bilden är för stor. Maximal storlek är 5MB");
 	}
 
-	// Get authenticated user
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-	const userFolder = user?.id || "anonymous";
-
 	// Generate file path
 	const fileExt = file.name.split(".").pop();
 	const timestamp = Date.now();
-	const fileName = `${userFolder}/${folder}/${timestamp}.${fileExt}`;
+	const fileName = `${timestamp}.${fileExt}`;
 
 	// Upload to storage
 	const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file);

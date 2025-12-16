@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
-	import { push } from "svelte-spa-router";
 	import {
 		Edit2,
 		ChevronUp,
@@ -10,7 +9,6 @@
 		Pause,
 		Info,
 		ExternalLink,
-		Plus,
 		Upload,
 	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
@@ -19,7 +17,7 @@
 	import RecordingEditorModal from "@/modals/RecordingEditorModal.svelte";
 	import RecordingsBatchUploadModal from "@/modals/RecordingsBatchUploadModal.svelte";
 	import { supabase } from "@/api";
-	import { getSwedishRecordingType } from "@/api/lang";
+	import { getAllSwedishRecordingTypes, getSwedishRecordingType } from "@/api/lang";
 	import { recordingsUIState } from "@/api/ui";
 
 	let recordings: Recording[] = [];
@@ -30,19 +28,7 @@
 	let isEditorOpen = false;
 	let isBatchUploadOpen = false;
 	// All possible recording types with Swedish labels
-	const recordingTypes = [
-		{ value: "unknown", label: "Okänd" },
-		{ value: "jingle", label: "Jingel" },
-		{ value: "poetry", label: "Poesi" },
-		{ value: "music", label: "Musik" },
-		{ value: "news", label: "Nyheter" },
-		{ value: "commentary", label: "Kommentar" },
-		{ value: "talk", label: "Tal" },
-		{ value: "comedy", label: "Komedi" },
-		{ value: "talkshow", label: "Pratshow" },
-		{ value: "interview", label: "Intervju" },
-		{ value: "other", label: "Övrigt" },
-	];
+	const recordingTypes = getAllSwedishRecordingTypes();
 
 	onMount(() => {
 		loadRecordings();

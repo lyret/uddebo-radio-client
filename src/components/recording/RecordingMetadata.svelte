@@ -16,6 +16,42 @@
 </script>
 
 <div class="metadata-section">
+	<div
+		class="box"
+		class:has-background-success-light={recording.okey_at !== null}
+		class:has-background-warning-light={recording.okey_at === null}
+	>
+		<h4
+			class="title is-6 mb-3"
+			class:has-text-success={recording.okey_at !== null}
+			class:has-text-warning={recording.okey_at === null}
+		>
+			{#if recording.okey_at === null}
+				<span class="icon">
+					<AlertCircle />
+				</span>
+				<br />
+				<span class="has-text-weight-semibold"> Väntar på godkännande </span>
+			{:else}
+				<span class="icon">
+					<CheckCircle />
+				</span>
+				<br />
+				<span class="has-text-weight-semibold">Godkänd</span>
+			{/if}
+		</h4>
+		<div class="field">
+			<p class="help">
+				{#if recording.okey_at === null}
+					Markera inspelningen som godkänd för att den ska kunna spelas i radion
+				{:else}
+					Inspelningen är godkänd och kan spelas i radion
+				{/if}
+			</p>
+			<slot name="status-actions" />
+		</div>
+	</div>
+
 	<div class="box">
 		<h4 class="title is-6 mb-3">Information</h4>
 		<div class="content is-small">
@@ -67,42 +103,6 @@
 			</a>
 		</div>
 	</div>
-
-	<div
-		class="box"
-		class:has-background-success-light={recording.okey_at !== null}
-		class:has-background-warning-light={recording.okey_at === null}
-	>
-		<h4
-			class="title is-6 mb-3"
-			class:has-text-success={recording.okey_at !== null}
-			class:has-text-warning={recording.okey_at === null}
-		>
-			{#if recording.okey_at === null}
-				<span class="icon">
-					<AlertCircle />
-				</span>
-				<br />
-				<span class="has-text-weight-semibold"> Väntar på godkännande </span>
-			{:else}
-				<span class="icon">
-					<CheckCircle />
-				</span>
-				<br />
-				<span class="has-text-weight-semibold">Godkänd</span>
-			{/if}
-		</h4>
-		<div class="field">
-			<slot name="status-actions" />
-			<p class="help">
-				{#if recording.okey_at === null}
-					Markera inspelningen som godkänd för att den ska kunna spelas i radion
-				{:else}
-					Inspelningen är godkänd och kan spelas i radion
-				{/if}
-			</p>
-		</div>
-	</div>
 </div>
 
 <style>
@@ -112,7 +112,6 @@
 
 	.image.is-square {
 		width: 100%;
-		max-width: 200px;
 		margin: 0 auto;
 	}
 </style>

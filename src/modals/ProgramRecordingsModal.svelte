@@ -468,8 +468,8 @@
 									acceptTypes: ["available-recording"],
 								}}
 							>
-								<div class="notification is-info is-light">
-									<p>Dra inspelningar hit eller klicka "Lägg till" för att bygga ditt program.</p>
+								<div class="notification is-light">
+									<p>Dra inspelningar hit eller klicka "Lägg till" för att bygga programmet.</p>
 								</div>
 							</div>
 						{:else}

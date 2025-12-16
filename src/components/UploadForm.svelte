@@ -94,7 +94,7 @@
 			let coverUrl = null;
 			if (selectedCoverFile) {
 				try {
-					coverUrl = await uploadCoverImage(selectedCoverFile, "recordings", "covers");
+					coverUrl = await uploadCoverImage(selectedCoverFile, "cover_images", "");
 				} catch (error) {
 					console.error("Cover upload error:", error);
 					toast.warning("Omslagsbilden kunde inte laddas upp");
@@ -164,22 +164,10 @@
 </script>
 
 <div class="container">
-	<h3 class="title is-4 has-text-centered">Ladda upp inspelning</h3>
+	<h3 class="title is-4 has-text-centered">Ladda upp en inspelning</h3>
 	<p class="subtitle is-6 has-text-centered mb-5">
-		Dela din musik eller ljudinspelning med Uddebo Radio
+		Dela din musik eller ljudinspelningar med Uddebo Radio
 	</p>
-
-	<div class="notification is-info is-light">
-		<div class="content">
-			<p>
-				<strong>Välkommen!</strong> Här kan du ladda upp din egen musik eller andra ljudinspelningar.
-			</p>
-			<p class="mt-2">
-				<strong>Automatisk konvertering:</strong> Ljudfiler konverteras automatiskt till MP3 för bästa
-				kompatibilitet.
-			</p>
-		</div>
-	</div>
 
 	<form on:submit|preventDefault={handleUpload}>
 		<!-- File Upload -->
@@ -189,7 +177,7 @@
 				Ljudfil *
 				<span class="has-text-weight-normal has-text-grey">(Alla ljudformat, max 50MB)</span>
 			</label>
-			<div class="file is-boxed is-centered">
+			<div class="file is-boxed is-centered is-fullwidth has-text-centered">
 				<label class="file-label">
 					<input
 						bind:this={fileInput}
@@ -372,12 +360,13 @@
 					type="submit"
 					class="button is-primary is-fullwidth is-medium"
 					disabled={!selectedFile || !title.trim() || uploading}
+					class:is-success={(selectedFile && title.trim()) || uploading}
 					class:is-loading={uploading}
 				>
 					<span class="icon">
 						<Upload />
 					</span>
-					<span>Ladda upp inspelning</span>
+					<span>Ladda upp</span>
 				</button>
 			</div>
 		</div>
@@ -394,7 +383,10 @@
 			<ul class="has-text-left" style="max-width: 500px; margin: 0 auto;">
 				<li>Du måste ha rätt att dela innehållet</li>
 				<li>Alla uppladdningar granskas innan de spelas</li>
-				<li>Ljudfiler konverteras automatiskt till MP3</li>
+				<li>
+					Ljudfiler konverteras automatiskt till MP3, lämna webbläsaren öppen tills avkodningen är
+					klar
+				</li>
 			</ul>
 		</div>
 	</div>

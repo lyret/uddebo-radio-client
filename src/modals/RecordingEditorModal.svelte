@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-	import { Save, Check, Trash2, X } from "lucide-svelte";
+	import { createEventDispatcher, onMount } from "svelte";
+	import { Check, Trash2, X } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { Recording } from "@/api/supabase/types";
 	import {
@@ -17,8 +17,7 @@
 		formatFileSize,
 	} from "@/api";
 	import AudioPlayer from "@/components/recording/AudioPlayer.svelte";
-	import RecordingForm from "@/components/recording/RecordingForm.svelte";
-	import FileUploadSection from "@/components/recording/FileUploadSection.svelte";
+	import RecordingInformationForm from "@/components/recording/RecordingInformationForm.svelte";
 	import RecordingMetadata from "@/components/recording/RecordingMetadata.svelte";
 
 	export let recording: Recording | null = null;
@@ -37,8 +36,6 @@
 
 	// File state
 	let selectedAudioFile: File | null = null;
-	let selectedCoverFile: File | null = null;
-	let selectedCaptionsFile: File | null = null;
 
 	// Loading states
 	let saving = false;
@@ -46,10 +43,20 @@
 	let uploadingCover = false;
 	let uploadingCaptions = false;
 
+	// Form ref
+	let formComponent: RecordingInformationForm;
+
 	// Load recording data when opened
 	$: if (recording && isOpen) {
 		loadFormData();
 	}
+
+	// Initialize form when component is mounted and recording exists
+	onMount(() => {
+		if (recording && formComponent) {
+			loadFormData();
+		}
+	});
 
 	function loadFormData() {
 		if (!recording) return;
@@ -61,6 +68,19 @@
 		linkOutUrl = recording.link_out_url || "";
 		coverUrl = recording.cover_url || null;
 		captionsUrl = recording.captions_url || null;
+
+		// Initialize the form component with current values
+		if (formComponent) {
+			formComponent.initialize({
+				title,
+				author,
+				description,
+				type,
+				linkOutUrl,
+				coverUrl,
+				captionsUrl,
+			});
+		}
 	}
 
 	function resetForm() {
@@ -72,8 +92,6 @@
 		coverUrl = null;
 		captionsUrl = null;
 		selectedAudioFile = null;
-		selectedCoverFile = null;
-		selectedCaptionsFile = null;
 		saving = false;
 		uploading = false;
 		uploadingCover = false;
@@ -86,17 +104,18 @@
 		dispatch("close");
 	}
 
-	async function handleSave() {
+	async function handleSave(event: CustomEvent) {
 		if (!recording) return;
 
 		saving = true;
 		try {
+			const formData = event.detail;
 			const updateData = {
-				title: title.trim(),
-				author: author.trim() || null,
-				description: description.trim() || null,
-				type,
-				link_out_url: linkOutUrl.trim() || null,
+				title: formData.title.trim(),
+				author: formData.author.trim() || null,
+				description: formData.description.trim() || null,
+				type: formData.type,
+				link_out_url: formData.link_out_url?.trim() || null,
 			};
 
 			const { data, error } = await updateRecording(recording.id, updateData);
@@ -108,6 +127,19 @@
 				const changedType = updateData.type !== recording.type;
 				dispatch("updated", { recording: data, changedType });
 				toast.success("Ändringar sparade");
+
+				// Update form's initial values after successful save
+				if (formComponent) {
+					formComponent.initialize({
+						title: data.title || "",
+						author: data.author || "",
+						description: data.description || "",
+						type: data.type || "unknown",
+						linkOutUrl: data.link_out_url || "",
+						coverUrl: data.cover_url || null,
+						captionsUrl: data.captions_url || null,
+					});
+				}
 			}
 		} catch (error) {
 			console.error("Save error:", error);
@@ -127,7 +159,7 @@
 			const uploadResult = await uploadAudioFile({
 				file: selectedAudioFile,
 				bucket: "recordings",
-				folder: `audio/${recording.id}`,
+				folder: "",
 				showProgress: true,
 				autoConvert: true,
 				maxSizeMB: 50,
@@ -155,14 +187,18 @@
 		}
 	}
 
+	async function handleReplace(event: CustomEvent<{ file: File }>) {
+		await handleAudioUpload(event);
+	}
+
 	async function handleCoverUpload(event: CustomEvent<{ file: File }>) {
 		if (!recording) return;
 
 		uploadingCover = true;
-		selectedCoverFile = event.detail.file;
+		const file = event.detail.file;
 
 		try {
-			const url = await uploadCoverImage(selectedCoverFile, "recordings", "covers");
+			const url = await uploadCoverImage(file, "cover_images", "");
 
 			const { data, error } = await updateRecording(recording.id, {
 				cover_url: url,
@@ -173,7 +209,9 @@
 			if (data) {
 				recording = data;
 				coverUrl = url;
-				selectedCoverFile = null;
+				if (formComponent) {
+					formComponent.updateCoverUrl(url);
+				}
 				dispatch("updated", { recording: data });
 				toast.success("Omslagsbild uppladdad");
 			}
@@ -189,13 +227,10 @@
 		if (!recording) return;
 
 		uploadingCaptions = true;
-		selectedCaptionsFile = event.detail.file;
+		const file = event.detail.file;
 
 		try {
-			const { url, error: uploadError } = await uploadCaptionsFile(
-				selectedCaptionsFile,
-				recording.id
-			);
+			const { url, error: uploadError } = await uploadCaptionsFile(file, recording.id);
 
 			if (uploadError) throw uploadError;
 
@@ -208,7 +243,9 @@
 			if (data) {
 				recording = data;
 				captionsUrl = url;
-				selectedCaptionsFile = null;
+				if (formComponent) {
+					formComponent.updateCaptionsUrl(url);
+				}
 				dispatch("updated", { recording: data });
 				toast.success("Textfil uppladdad");
 			}
@@ -228,6 +265,9 @@
 			if (error) throw error;
 
 			coverUrl = null;
+			if (formComponent) {
+				formComponent.updateCoverUrl(null);
+			}
 			toast.success("Omslagsbild borttagen");
 			dispatch("updated", { recording: { ...recording, cover_url: null } });
 		} catch (error) {
@@ -244,6 +284,9 @@
 			if (error) throw error;
 
 			captionsUrl = null;
+			if (formComponent) {
+				formComponent.updateCaptionsUrl(null);
+			}
 			toast.success("Textfil borttagen");
 			dispatch("updated", { recording: { ...recording, captions_url: null } });
 		} catch (error) {
@@ -376,7 +419,9 @@
 							<AudioPlayer
 								audioUrl={recording.file_url}
 								enableTrimming={true}
+								enableReplacement={true}
 								on:trim={handleTrim}
+								on:replace={handleReplace}
 							/>
 						</div>
 					{/if}
@@ -384,31 +429,20 @@
 					<div class="columns">
 						<!-- Left column: Form -->
 						<div class="column is-8">
-							<h3 class="title is-5 mb-4">Redigera information</h3>
-
-							<RecordingForm
+							<RecordingInformationForm
+								bind:this={formComponent}
 								bind:title
 								bind:author
 								bind:description
 								bind:type
 								bind:linkOutUrl
-								disabled={saving}
-								on:save={handleSave}
-							/>
-
-							<FileUploadSection
-								{coverUrl}
-								{captionsUrl}
-								{selectedAudioFile}
-								{selectedCoverFile}
-								{selectedCaptionsFile}
-								{uploading}
+								bind:coverUrl
+								bind:captionsUrl
+								disabled={saving || uploading || uploadingCover || uploadingCaptions}
+								{saving}
 								{uploadingCover}
 								{uploadingCaptions}
-								on:audioSelect={handleAudioUpload}
-								on:coverSelect={handleCoverUpload}
-								on:captionsSelect={handleCaptionsUpload}
-								on:uploadAudio={handleAudioUpload}
+								on:save={handleSave}
 								on:uploadCover={handleCoverUpload}
 								on:uploadCaptions={handleCaptionsUpload}
 								on:deleteCover={handleDeleteCover}
@@ -423,18 +457,29 @@
 								<div slot="status-actions" class="buttons">
 									{#if recording.okey_at === null}
 										<button
-											class="button is-success is-small"
+											class="button is-success is-small is-dark mt-2 is-fullwidth has-text-left"
 											on:click={handleMarkAsOK}
 											type="button"
 										>
 											<span class="icon">
 												<Check />
 											</span>
-											<span>Godkänn</span>
+											<span>Godkänn inspelningen</span>
 										</button>
+										<button
+											class="button is-danger is-outlined is-fullwidth is-small mt-4"
+											on:click={handleDelete}
+											type="button"
+										>
+											<span class="icon">
+												<Trash2 size={16} />
+											</span>
+											<span>Ta bort inspelning</span>
+										</button>
+										<p class="help">Detta går inte att ångra</p>
 									{:else}
 										<button
-											class="button is-warning is-small"
+											class="button is-success is-small is-light mt-2 is-fullwidth has-text-left"
 											on:click={handleMarkAsNotOK}
 											type="button"
 										>
@@ -443,47 +488,6 @@
 									{/if}
 								</div>
 							</RecordingMetadata>
-
-							{#if recording.okey_at === null}
-								<div class="field mt-4">
-									<button
-										class="button is-danger is-outlined is-fullwidth"
-										on:click={handleDelete}
-										type="button"
-									>
-										<span class="icon">
-											<Trash2 size={16} />
-										</span>
-										<span>Ta bort inspelning</span>
-									</button>
-									<p class="help">Detta går inte att ångra</p>
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<hr />
-
-					<div class="level">
-						<div class="level-left" />
-						<div class="level-right">
-							<div class="level-item">
-								<button
-									class="button is-primary"
-									on:click={handleSave}
-									disabled={saving}
-									class:is-loading={saving}
-									type="button"
-								>
-									<span class="icon">
-										<Save />
-									</span>
-									<span>Spara ändringar</span>
-								</button>
-							</div>
-							<div class="level-item">
-								<button class="button" on:click={closeModal} type="button"> Stäng </button>
-							</div>
 						</div>
 					</div>
 				{/if}

@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-	import { Radio, Calendar, Info, Trash2, Image } from "lucide-svelte";
+	import { createEventDispatcher, onMount } from "svelte";
+	import { Radio, Trash2 } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { BroadcastProgram } from "@/api";
 	import { supabase } from "@/api";
+	import ProgramInformationForm from "@/components/program/ProgramInformationForm.svelte";
 
 	export let program: BroadcastProgram | null = null;
 	export let isOpen = false;
@@ -17,15 +18,21 @@
 	let loading = false;
 	let uploadingCover = false;
 
-	// File input
-	let coverFileInput: HTMLInputElement;
-	let selectedCoverFile: File | null = null;
+	// Form ref
+	let formComponent: ProgramInformationForm;
 
 	$: if (isOpen && program) {
 		loadFormData();
 	} else if (isOpen && !program) {
 		resetForm();
 	}
+
+	// Initialize form when component is mounted and program exists
+	onMount(() => {
+		if (program && formComponent) {
+			loadFormData();
+		}
+	});
 
 	function loadFormData() {
 		if (!program) return;
@@ -34,6 +41,16 @@
 		description = program.description || "";
 		startTime = program.start_time ? new Date(program.start_time).toISOString().slice(0, 16) : "";
 		cover_url = program.cover_url || "";
+
+		// Initialize the form component with current values
+		if (formComponent) {
+			formComponent.initialize({
+				title,
+				description,
+				startTime,
+				coverUrl: cover_url,
+			});
+		}
 	}
 
 	function resetForm() {
@@ -41,12 +58,22 @@
 		description = "";
 		startTime = "";
 		cover_url = "";
-		selectedCoverFile = null;
-		if (coverFileInput) coverFileInput.value = "";
+
+		// Initialize the form component for new program
+		if (formComponent) {
+			formComponent.initialize({
+				title: "",
+				description: "",
+				startTime: "",
+				coverUrl: null,
+			});
+		}
 	}
 
-	async function handleSubmit() {
-		if (!title.trim() || !startTime) {
+	async function handleSave(event: CustomEvent) {
+		const formData = event.detail;
+
+		if (!formData.title.trim() || !formData.startTime) {
 			toast.error("Vänligen fyll i alla obligatoriska fält");
 			return;
 		}
@@ -58,10 +85,10 @@
 			} = await supabase.auth.getUser();
 
 			const programData = {
-				title: title.trim(),
-				description: description.trim() || null,
-				start_time: new Date(startTime).toISOString(),
-				cover_url: cover_url || null,
+				title: formData.title.trim(),
+				description: formData.description.trim() || null,
+				start_time: new Date(formData.startTime).toISOString(),
+				cover_url: formData.coverUrl || null,
 				edited_at: new Date().toISOString(),
 				edited_by: user?.id || null,
 			};
@@ -89,13 +116,137 @@
 				toast.success("Sändningsprogrammet skapat");
 			}
 
+			// Update form's initial values after successful save
+			if (formComponent && program) {
+				formComponent.initialize({
+					title: formData.title,
+					description: formData.description,
+					startTime: formData.startTime,
+					coverUrl: formData.coverUrl,
+				});
+			}
+
 			dispatch("updated");
-			handleClose();
+			if (!program) {
+				handleClose();
+			}
 		} catch (error) {
 			toast.error(program ? "Kunde inte uppdatera programmet" : "Kunde inte skapa programmet");
 			console.error(error);
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleUploadCover(event: CustomEvent<{ file: File }>) {
+		if (!program && !isOpen) return;
+
+		const file = event.detail.file;
+
+		try {
+			uploadingCover = true;
+
+			// Generate unique filename
+			const fileExt = file.name.split(".").pop();
+			const timestamp = Date.now();
+			const programId = program?.id || `new_${timestamp}`;
+			const fileName = `${programId}_${timestamp}.${fileExt}`;
+
+			// Delete old cover if exists and it's a Supabase URL
+			if (program?.cover_url && program.cover_url.includes("supabase")) {
+				const oldFileName = program.cover_url.split("/").pop();
+				if (oldFileName) {
+					await supabase.storage.from("cover_images").remove([oldFileName]);
+				}
+			}
+
+			// Upload new cover
+			const { error: uploadError } = await supabase.storage
+				.from("cover_images")
+				.upload(fileName, file);
+
+			if (uploadError) throw uploadError;
+
+			// Get public URL
+			const { data: urlData } = supabase.storage.from("cover_images").getPublicUrl(fileName);
+
+			// Update form state
+			cover_url = urlData.publicUrl;
+			if (formComponent) {
+				formComponent.updateCoverUrl(urlData.publicUrl);
+			}
+
+			// If editing existing program, save to database immediately
+			if (program) {
+				const {
+					data: { user },
+				} = await supabase.auth.getUser();
+
+				const { error: dbError } = await supabase
+					.from("broadcast_programs")
+					.update({
+						cover_url: urlData.publicUrl,
+						edited_at: new Date().toISOString(),
+						edited_by: user?.id || null,
+					})
+					.eq("id", program.id);
+
+				if (dbError) throw dbError;
+
+				// Update local program object
+				program.cover_url = urlData.publicUrl;
+				dispatch("updated");
+			}
+
+			toast.success("Omslagsbilden har laddats upp");
+		} catch (error) {
+			toast.error("Kunde inte ladda upp omslagsbilden");
+			console.error(error);
+		} finally {
+			uploadingCover = false;
+		}
+	}
+
+	async function handleDeleteCover() {
+		if (!program) return;
+
+		try {
+			const {
+				data: { user },
+			} = await supabase.auth.getUser();
+
+			// Delete from storage if it's a Supabase URL
+			if (program.cover_url && program.cover_url.includes("supabase")) {
+				const fileName = program.cover_url.split("/").pop();
+				if (fileName) {
+					await supabase.storage.from("cover_images").remove([fileName]);
+				}
+			}
+
+			// Clear from database
+			const { error } = await supabase
+				.from("broadcast_programs")
+				.update({
+					cover_url: null,
+					edited_at: new Date().toISOString(),
+					edited_by: user?.id || null,
+				})
+				.eq("id", program.id);
+
+			if (error) throw error;
+
+			// Update local state
+			program.cover_url = null;
+			cover_url = "";
+			if (formComponent) {
+				formComponent.updateCoverUrl(null);
+			}
+
+			toast.success("Omslagsbilden har tagits bort");
+			dispatch("updated");
+		} catch (error) {
+			toast.error("Kunde inte ta bort omslagsbilden");
+			console.error(error);
 		}
 	}
 
@@ -132,119 +283,8 @@
 		dispatch("close");
 	}
 
-	async function handleCoverFileSelect(event: Event) {
-		const input = event.target as HTMLInputElement;
-		if (input.files && input.files[0]) {
-			selectedCoverFile = input.files[0];
-			// Validate file type
-			if (!selectedCoverFile.type.startsWith("image/")) {
-				toast.error("Vänligen välj en bildfil");
-				selectedCoverFile = null;
-				return;
-			}
-		}
-	}
-
-	async function uploadCoverImage() {
-		if (!selectedCoverFile || !program) return;
-
-		try {
-			uploadingCover = true;
-
-			// Upload cover image with timestamp for uniqueness
-			const fileExt = selectedCoverFile.name.split(".").pop();
-			const timestamp = Date.now();
-			const fileName = `${program.id}_${timestamp}.${fileExt}`;
-
-			// Delete old cover if exists
-			if (program.cover_url && program.cover_url.includes("supabase")) {
-				const oldFileName = program.cover_url.split("/").pop();
-				if (oldFileName) {
-					await supabase.storage.from("cover_images").remove([oldFileName]);
-				}
-			}
-
-			const { error: uploadError } = await supabase.storage
-				.from("cover_images")
-				.upload(fileName, selectedCoverFile);
-
-			if (uploadError) throw uploadError;
-
-			// Get public URL
-			const { data: urlData } = supabase.storage.from("cover_images").getPublicUrl(fileName);
-
-			// Update the form field
-			cover_url = urlData.publicUrl;
-
-			// Save the cover URL to database
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-
-			const { error: dbError } = await supabase
-				.from("broadcast_programs")
-				.update({
-					cover_url: urlData.publicUrl,
-					edited_at: new Date().toISOString(),
-					edited_by: user?.id || null,
-				})
-				.eq("id", program.id);
-
-			if (dbError) throw dbError;
-
-			// Update local program object
-			program.cover_url = urlData.publicUrl;
-
-			toast.success("Omslagsbilden har laddats upp och sparats");
-			selectedCoverFile = null;
-			coverFileInput.value = "";
-			dispatch("updated");
-		} catch (error) {
-			toast.error("Kunde inte ladda upp omslagsbilden");
-			console.error(error);
-		} finally {
-			uploadingCover = false;
-		}
-	}
-
-	async function deleteCoverImage() {
-		if (!program || !program.cover_url) return;
-
-		try {
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-
-			// Delete from storage if it's a Supabase URL
-			if (program.cover_url.includes("supabase")) {
-				const fileName = program.cover_url.split("/").pop();
-				if (fileName) {
-					await supabase.storage.from("cover_images").remove([fileName]);
-				}
-			}
-
-			// Clear from database
-			const { error } = await supabase
-				.from("broadcast_programs")
-				.update({
-					cover_url: null,
-					edited_at: new Date().toISOString(),
-					edited_by: user?.id || null,
-				})
-				.eq("id", program.id);
-
-			if (error) throw error;
-
-			// Update local state
-			program.cover_url = null;
-			cover_url = "";
-
-			toast.success("Omslagsbilden har tagits bort");
-			dispatch("updated");
-		} catch (error) {
-			toast.error("Kunde inte ta bort omslagsbilden");
-			console.error(error);
-		}
+	function handleError(event: CustomEvent<{ message: string }>) {
+		toast.error(event.detail.message);
 	}
 </script>
 
@@ -268,174 +308,33 @@
 			<button class="delete" aria-label="close" on:click={handleClose} disabled={loading}></button>
 		</header>
 		<section class="modal-card-body">
-			<form id="program-form" on:submit|preventDefault={handleSubmit}>
-				<!-- Title Field -->
-				<div class="field">
-					<label class="label" for="program-title">
-						Titel <span class="has-text-danger">*</span>
-					</label>
-					<div class="control has-icons-left">
-						<input
-							id="program-title"
-							class="input"
-							type="text"
-							bind:value={title}
-							placeholder="Ange programtitel"
-							required
-							disabled={loading}
-						/>
-						<span class="icon is-small is-left">
-							<Info size={16} />
+			<ProgramInformationForm
+				bind:this={formComponent}
+				bind:title
+				bind:description
+				bind:startTime
+				bind:coverUrl={cover_url}
+				disabled={loading || uploadingCover}
+				{loading}
+				{uploadingCover}
+				isNew={!program}
+				on:save={handleSave}
+				on:uploadCover={handleUploadCover}
+				on:deleteCover={handleDeleteCover}
+				on:error={handleError}
+			/>
+
+			{#if program}
+				<!-- Delete Button -->
+				<div class="field mt-5">
+					<button class="button is-danger is-outlined" on:click={handleDelete} disabled={loading}>
+						<span class="icon">
+							<Trash2 size={16} />
 						</span>
-					</div>
+						<span>Ta bort program</span>
+					</button>
 				</div>
-
-				<!-- Description Field -->
-				<div class="field">
-					<label class="label" for="program-description">Beskrivning</label>
-					<div class="control">
-						<textarea
-							id="program-description"
-							class="textarea"
-							bind:value={description}
-							placeholder="Ange programbeskrivning"
-							rows="3"
-							disabled={loading}
-						/>
-					</div>
-				</div>
-
-				<!-- Start Time Field -->
-				<div class="field">
-					<label class="label" for="program-start-time">
-						Starttid <span class="has-text-danger">*</span>
-					</label>
-					<div class="control has-icons-left">
-						<input
-							id="program-start-time"
-							class="input"
-							type="datetime-local"
-							bind:value={startTime}
-							required
-							disabled={loading}
-						/>
-						<span class="icon is-small is-left">
-							<Calendar size={16} />
-						</span>
-					</div>
-					<p class="help">Datum och tid när detta program ska sändas</p>
-				</div>
-
-				<!-- Cover Image Upload -->
-				<div class="field">
-					<p class="label">Omslagsbild</p>
-					<div class="file has-name is-fullwidth mb-2">
-						<label class="file-label">
-							<input
-								bind:this={coverFileInput}
-								class="file-input"
-								type="file"
-								accept="image/*"
-								on:change={handleCoverFileSelect}
-								disabled={loading}
-							/>
-							<span class="file-cta">
-								<span class="file-icon">
-									<Image size={16} />
-								</span>
-								<span class="file-label">Välj omslagsbild...</span>
-							</span>
-							<span class="file-name">
-								{selectedCoverFile ? selectedCoverFile.name : "Ingen fil vald"}
-							</span>
-						</label>
-					</div>
-					{#if selectedCoverFile}
-						<button
-							class="button is-info is-small"
-							type="button"
-							on:click={uploadCoverImage}
-							disabled={uploadingCover || loading}
-						>
-							{uploadingCover ? "Laddar upp..." : "Ladda upp omslag"}
-						</button>
-					{/if}
-					{#if cover_url || (program && program.cover_url)}
-						<p class="help">
-							<a
-								class="button is-info is-small ml-2 is-rounded is-outlined"
-								href={cover_url || program?.cover_url}
-								target="_blank">Visa nuvarande omslagsbild</a
-							>
-							<button
-								class="button is-danger is-small ml-2 is-rounded is-outlined"
-								type="button"
-								on:click={deleteCoverImage}
-								disabled={loading}
-							>
-								<span class="icon">
-									<Trash2 size={14} />
-								</span>
-								<span>Ta bort</span>
-							</button>
-						</p>
-					{/if}
-				</div>
-
-				<!-- Cover Image Preview -->
-				{#if cover_url || (program && program.cover_url)}
-					<div class="field">
-						<figure class="image is-square">
-							<img src={cover_url || program?.cover_url} alt="Program cover" />
-						</figure>
-					</div>
-				{/if}
-
-				{#if !program}
-					<div class="notification is-info is-light">
-						<p class="is-size-7">
-							<strong>OBS:</strong> Nya program skapas som inaktiva. Du kan aktivera dem efter att ha
-							lagt till inspelningar.
-						</p>
-					</div>
-				{/if}
-			</form>
-
-			<div class="level is-mobile mt-5">
-				{#if program}
-					<div class="level-left">
-						<div class="level-item">
-							<button
-								class="button is-danger is-outlined"
-								on:click={handleDelete}
-								disabled={loading}
-							>
-								<span class="icon">
-									<Trash2 size={16} />
-								</span>
-								<span>Ta bort program</span>
-							</button>
-						</div>
-					</div>
-				{/if}
-				<hr />
-				<div class="level-right">
-					<div class="level-item">
-						<button
-							type="submit"
-							form="program-form"
-							class="button is-primary"
-							class:is-loading={loading}
-							disabled={loading}
-						>
-							{program ? "Uppdatera" : "Skapa"} program
-						</button>
-					</div>
-					<div class="level-item">
-						<button class="button" on:click={handleClose} disabled={loading}>Avbryt</button>
-					</div>
-				</div>
-			</div>
+			{/if}
 		</section>
 	</div>
 </div>

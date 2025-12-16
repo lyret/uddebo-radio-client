@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, createEventDispatcher } from "svelte";
-	import { Play, Pause, Scissors } from "lucide-svelte";
+	import { Play, Pause, Scissors, Upload } from "lucide-svelte";
 	import {
 		initializeWaveform,
 		createTrimRegion,
@@ -13,6 +13,7 @@
 	export let audioUrl: string;
 	export let showTrimControls = false;
 	export let enableTrimming = false;
+	export let enableReplacement = false;
 
 	const dispatch = createEventDispatcher();
 
@@ -24,6 +25,8 @@
 	let isPlaying = false;
 	let trimStart = 0;
 	let trimEnd = 0;
+	let showReplaceControls = false;
+	let fileInput: HTMLInputElement;
 
 	$: if (audioElement && audioUrl) {
 		audioElement.src = audioUrl;
@@ -165,10 +168,45 @@
 		showTrimControls = false;
 		dispatch("trimCancelled");
 	}
+
+	function enableReplace() {
+		showReplaceControls = true;
+		showTrimControls = false;
+		if (regions) {
+			regions.clearRegions();
+		}
+		activeRegion = null;
+		dispatch("replaceEnabled");
+	}
+
+	function handleFileSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file && file.type.startsWith("audio/")) {
+			dispatch("replace", { file });
+			showReplaceControls = false;
+			if (fileInput) fileInput.value = "";
+		}
+	}
+
+	function cancelReplace() {
+		showReplaceControls = false;
+		if (fileInput) fileInput.value = "";
+		dispatch("replaceCancelled");
+	}
 </script>
 
 <!-- Hidden audio element for synchronization -->
 <audio bind:this={audioElement} style="display: none;" />
+
+<!-- Hidden file input for audio replacement -->
+<input
+	bind:this={fileInput}
+	type="file"
+	accept="audio/*"
+	on:change={handleFileSelect}
+	style="display: none;"
+/>
 
 <div class="audio-player">
 	<div bind:this={waveformContainer} class="waveform-container mb-3"></div>
@@ -190,9 +228,9 @@
 					{/if}
 				</button>
 
-				{#if enableTrimming && !showTrimControls}
+				{#if enableTrimming && !showTrimControls && !showReplaceControls}
 					<button
-						class="button is-info is-outlined is-warning is-small"
+						class="button is-info is-light is-outlined is-warning is-small"
 						on:click={enableTrim}
 						type="button"
 					>
@@ -202,11 +240,24 @@
 						<span>Trimma</span>
 					</button>
 				{/if}
+
+				{#if enableReplacement && !showReplaceControls && !showTrimControls}
+					<button
+						class="button is-warning is-outlined is-small"
+						on:click={enableReplace}
+						type="button"
+					>
+						<span class="icon">
+							<Upload size={16} />
+						</span>
+						<span>Ersätt ljudfil</span>
+					</button>
+				{/if}
 			</div>
 		</div>
 
 		{#if showTrimControls && activeRegion}
-			<div class="notification is-info is-light mt-3">
+			<div class="notification is-warning is-light mt-3">
 				<p class="mb-2">
 					<strong>Trimma ljudfil</strong>
 				</p>
@@ -223,6 +274,31 @@
 						<span>Tillämpa trimning</span>
 					</button>
 					<button class="button is-small" on:click={cancelTrim} type="button"> Avbryt </button>
+				</div>
+			</div>
+		{/if}
+
+		{#if showReplaceControls}
+			<div class="notification is-warning is-light mt-3">
+				<p class="mb-2">
+					<strong>Ersätt ljudfil</strong>
+				</p>
+				<p class="mb-3">
+					Välj en ny ljudfil för att ersätta den nuvarande inspelningen. Alla ljudformat stöds och
+					konverteras automatiskt till MP3 vid behov.
+				</p>
+				<div class="buttons">
+					<button
+						class="button is-warning is-small"
+						on:click={() => fileInput?.click()}
+						type="button"
+					>
+						<span class="icon">
+							<Upload size={16} />
+						</span>
+						<span>Välj fil</span>
+					</button>
+					<button class="button is-small" on:click={cancelReplace} type="button"> Avbryt </button>
 				</div>
 			</div>
 		{/if}
