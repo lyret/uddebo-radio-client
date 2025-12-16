@@ -10,6 +10,19 @@ export default defineConfig({
 		outDir: "./.dist",
 		emptyOutDir: true,
 	},
+	css: {
+		preprocessorOptions: {
+			scss: {
+				silenceDeprecations: [
+					"legacy-js-api",
+					"import",
+					"if-function",
+					"global-builtin",
+					"color-functions",
+				],
+			},
+		},
+	},
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),

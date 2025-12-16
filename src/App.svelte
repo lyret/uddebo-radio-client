@@ -31,7 +31,20 @@
 	});
 </script>
 
-<Toaster richColors closeButton />
+<Toaster
+	toastOptions={{
+		unstyled: true,
+		classes: {
+			toast: "notification",
+			error: "is-danger",
+			success: "is-success",
+			warning: "is-warning",
+			info: "is-info",
+			cancelButton: "delete",
+			closeButton: "delete",
+		},
+	}}
+/>
 
 <QueryClientProvider client={queryClient}>
 	<Router {routes} />

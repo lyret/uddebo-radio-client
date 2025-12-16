@@ -32,6 +32,7 @@ export interface WaveformConfig {
 	height?: number;
 	waveColor?: string;
 	progressColor?: string;
+	cursorColor?: string;
 	normalize?: boolean;
 }
 
@@ -44,8 +45,9 @@ export async function initializeWaveform(config: WaveformConfig): Promise<{
 }> {
 	const wavesurfer = WaveSurfer.create({
 		container: config.container,
-		waveColor: config.waveColor || "#3273dc",
-		progressColor: config.progressColor || "#00d1b2",
+		waveColor: config.waveColor || "#2dfff9",
+		progressColor: config.progressColor || "#41cdcb",
+		cursorColor: config.cursorColor || "#41cdcb",
 		url: config.url,
 		height: config.height || 100,
 		normalize: config.normalize ?? true,
@@ -73,7 +75,7 @@ export function createTrimRegion(regions: RegionsPlugin, start: number, end: num
 	return regions.addRegion({
 		start,
 		end,
-		color: "rgba(255, 165, 0, 0.3)",
+		color: "rgba(212, 176, 19, 0.3)",
 		drag: true,
 		resize: true,
 	});

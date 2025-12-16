@@ -1,0 +1,45 @@
+// Custom Bulma theme variables
+// Set these before importing Bulma to override defaults
+
+// Custom color definitions
+$primary: #000000;
+$info: #42cdcb;
+$warning: #d4b013;
+$danger: #cd4276;
+$link: #7e68ff;
+$success: #3dcd35;
+
+// Import Bulma's initial variables and functions
+@import "bulma/sass/utilities/initial-variables";
+@import "bulma/sass/utilities/functions";
+
+// Set derived variables after functions are available
+$primary-invert: findColorInvert($primary);
+$info-invert: findColorInvert($info);
+$warning-invert: findColorInvert($warning);
+$danger-invert: findColorInvert($danger);
+
+$primary-light: findLightColor($primary);
+$primary-dark: findDarkColor($primary);
+$info-light: findLightColor($info);
+$info-dark: findDarkColor($info);
+$warning-light: findLightColor($warning);
+$warning-dark: findDarkColor($warning);
+$danger-light: findLightColor($danger);
+$danger-dark: findDarkColor($danger);
+
+// Import the rest of Bulma
+@import "bulma/sass/utilities/derived-variables";
+@import "bulma/sass/utilities/mixins";
+@import "bulma/sass/utilities/controls";
+@import "bulma/sass/utilities/extends";
+
+@import "bulma/sass/base/_all";
+@import "bulma/sass/elements/_all";
+@import "bulma/sass/form/_all";
+@import "bulma/sass/components/_all";
+@import "bulma/sass/grid/_all";
+@import "bulma/sass/helpers/_all";
+@import "bulma/sass/layout/_all";
+
+// Custom styles can be added below

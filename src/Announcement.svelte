@@ -39,7 +39,7 @@
 									<span class="icon">
 										<Upload />
 									</span>
-									<span>Ladda upp din inspelning här</span>
+									<span>Ladda upp</span>
 								</button>
 							</div>
 						</div>
@@ -82,10 +82,11 @@
 
 {#if showUploadForm}
 	<div class="modal is-active">
+		<!-- svelte-ignore a11y-click-events-have-key-events -->
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<div class="modal-background" on:click={() => (showUploadForm = false)}></div>
 		<div class="modal-card" style="width: 90%; max-width: 900px;">
 			<header class="modal-card-head">
-				<p class="modal-card-title">Ladda upp inspelning</p>
 				<button class="delete" aria-label="close" on:click={() => (showUploadForm = false)}
 				></button>
 			</header>

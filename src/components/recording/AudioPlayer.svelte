@@ -244,7 +244,6 @@
 	.waveform-container {
 		width: 100%;
 		min-height: 100px;
-		background: #f5f5f5;
 		border-radius: 4px;
 		position: relative;
 	}
@@ -254,12 +253,12 @@
 	}
 
 	.waveform-container :global(.wavesurfer-region) {
-		border: 2px solid orange;
+		border: 2px solid red;
 		border-radius: 4px;
 	}
 
-	.waveform-container :global(.wavesurfer-handle) {
-		background-color: orange;
+	.waveform-container :global(::part(region-handle)) {
+		border-color: #d4b013;
 		width: 8px;
 	}
 </style>

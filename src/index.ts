@@ -1,4 +1,4 @@
-import "./App.css";
+import "./index.scss";
 import App from "./App.svelte";
 import Announcement from "./Announcement.svelte";
 import { authenticationStore } from "./api";
