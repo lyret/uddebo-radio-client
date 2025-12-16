@@ -91,7 +91,7 @@
 	}
 	.cover-area.is-on {
 		background-color: rgba(0, 0, 0, 0.9);
-		box-shadow: 0 0 10px #00ff00;
+		box-shadow: 0 0 10px #cd4276;
 		animation: crt-turn-on 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
 	}
 
@@ -100,12 +100,6 @@
 		height: 100%;
 		object-fit: cover;
 		animation: crt-flicker 0.15s infinite;
-	}
-
-	.cover-placeholder {
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
 	}
 
 	/* Display area - positioned absolute over the radio */
@@ -118,13 +112,13 @@
 		padding: 1rem;
 		background: rgba(0, 0, 0, 0.8);
 		border-radius: 4px;
-		color: #00ff00;
+		color: #cd4276;
 		font-family: monospace;
 		transition: all 1s ease;
 	}
 	.display-area.is-on {
 		background-color: rgba(0, 0, 0, 0.9);
-		box-shadow: 0 0 10px #00ff00;
+		box-shadow: 0 0 10px #cd4276;
 		animation: crt-turn-on 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
 	}
 
@@ -134,7 +128,7 @@
 		text-overflow: ellipsis;
 		opacity: 0.8;
 		font-weight: bold;
-		text-shadow: 0 0 3px #00ff00;
+		text-shadow: 0 0 3px #cd4276;
 		animation: crt-text-glow 2s ease-in-out infinite alternate;
 	}
 	.display.row-1 {
@@ -208,8 +202,8 @@
 		pointer-events: none;
 		background: radial-gradient(
 			ellipse at center,
-			rgba(0, 255, 0, 0.1) 0%,
-			rgba(0, 255, 0, 0.05) 40%,
+			rgba(205, 66, 118, 0.1) 0%,
+			rgba(205, 66, 118, 0.05) 40%,
 			transparent 70%
 		);
 		animation: crt-pulse 4s ease-in-out infinite;
@@ -271,15 +265,15 @@
 	@keyframes crt-text-glow {
 		0% {
 			text-shadow:
-				0 0 3px #00ff00,
-				0 0 5px #00ff00;
+				0 0 3px #cd4276,
+				0 0 5px #cd4276;
 			opacity: 0.8;
 		}
 		100% {
 			text-shadow:
-				0 0 4px #00ff00,
-				0 0 8px #00ff00,
-				0 0 12px rgba(0, 255, 0, 0.5);
+				0 0 4px #cd4276,
+				0 0 8px #cd4276,
+				0 0 12px rgb(205, 66, 118, 0.5);
 			opacity: 0.9;
 		}
 	}
@@ -294,56 +288,61 @@
 		}
 	}
 
-	/* Responsive adjustments for smaller text */
-	@media (max-width: 768px) {
-		.display-area {
-			padding: 0.5rem;
-		}
-
-		.display.row-1 {
-			font-size: 0.75rem;
-		}
-
-		.display.row-2 {
-			font-size: 0.625rem;
-		}
-	}
-
-	@media (max-width: 480px) {
-		.display-area {
-			padding: 0.25rem;
-		}
-
-		.display.row-1 {
-			font-size: 0.625rem;
-		}
-
-		.display.row-2 {
-			font-size: 0.5rem;
-		}
-	}
-
 	@media (orientation: portrait) and (max-width: 700px) {
+		.wrapper {
+			position: relative;
+			display: block;
+			width: 100vw;
+			height: 180vw;
+		}
+
 		.radio-image {
 			background-image: url("/radio-mobile.png");
+			height: 100%;
+			width: 100%;
+			display: block;
+			object-fit: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+			background-size: contain;
 		}
 
 		.cover-area {
-			left: 215px;
-			top: 298px;
-			width: 380px;
-			height: 380px;
+			left: 11vw;
+			top: 70vw;
+			height: 81vw;
+			width: 80vw;
 		}
+
 		.display-area {
-			left: 215px;
-			top: 18px;
-			width: 380px;
-			height: 204px;
+			left: 11vw;
+			top: 10vw;
+			width: 80vw;
+			height: 44vw;
+		}
+
+		.display-area {
+			padding: 2.5vw;
+		}
+
+		.display.row-1 {
+			font-size: 5vw;
+		}
+
+		.display.row-2 {
+			font-size: 4.5vw;
+		}
+		.display.row-3 {
+			font-size: 4.5vw;
 		}
 
 		.power-button {
 			position: absolute;
-			left: 522px;
+			left: unset;
+			width: 16vw;
+			height: 16vw;
+			top: 156vw;
+			right: 12%;
 		}
 	}
 </style>

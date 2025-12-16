@@ -5,13 +5,12 @@
 	import { isAdmin } from "@/api";
 	import {
 		currentlyPlayingMedium,
-		broadcastScheduleStore,
 		nextRecording,
 		isPlaying,
 		notifyTrackFinished,
 	} from "@/api/broadcast";
 	import { onMount, onDestroy } from "svelte";
-	import { fly } from "svelte/transition";
+	import { fade } from "svelte/transition";
 	import {
 		storeOriginalTitle,
 		updateDocumentTitle,
@@ -213,7 +212,7 @@
 				updateBrowserTitle();
 			}
 		} else {
-			instructions = "Tryck på strömknappen för att börja lyssna";
+			instructions = "";
 			currentTrackId = null;
 			if (audioElement) {
 				audioElement.pause();
@@ -306,7 +305,7 @@
 		display3={$nextRecording ? `Nästa: ${$nextRecording.title}` : ""}
 	/>
 	{#if instructions}
-		<div class="instructions" transition:fly>
+		<div class="instructions" transition:fade>
 			{instructions}
 		</div>
 	{/if}
@@ -333,5 +332,11 @@
 		margin-top: 2rem;
 		margin-bottom: 2rem;
 		text-align: center;
+	}
+
+	@media (orientation: portrait) and (max-width: 700px) {
+		.instructions {
+			order: 1;
+		}
 	}
 </style>
