@@ -74,7 +74,7 @@ export const draggable: Action<
 export const dropzone: Action<
 	HTMLElement,
 	{
-		onDrop?: (dragData: DragData, e: DragEvent) => void;
+		onDrop?: (dragData: DragData, dropIndex?: number) => void;
 		onDragOver?: (e: DragEvent) => void;
 		onDragLeave?: (e: DragEvent) => void;
 		onDragEnter?: (e: DragEvent) => void;
@@ -144,7 +144,7 @@ export const dropzone: Action<
 					return;
 				}
 
-				onDrop?.(dragData, e);
+				onDrop?.(dragData);
 			}
 		} catch (err) {
 			console.error("Failed to parse drag data:", err);

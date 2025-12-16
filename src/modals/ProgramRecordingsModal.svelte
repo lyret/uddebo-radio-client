@@ -1,21 +1,12 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import {
-		FileAudio,
-		Music,
-		ChevronUp,
-		ChevronDown,
-		X,
-		Filter,
-		ArrowUpDown,
-		AlertCircle,
-	} from "lucide-svelte";
+	import { Music, ChevronUp, ChevronDown, X, ArrowUpDown, AlertCircle } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 
 	import type { BroadcastProgram, Recording } from "@/api";
 	import { supabase } from "@/api";
-	import { draggable, dropzone, sortable, arrayMove, type DragData } from "@/lib/dndWrapper";
-	import { getSwedishRecordingType, getAllSwedishRecordingTypes } from "@/api/lang";
+	import { draggable, dropzone, sortable, arrayMove, type DragData } from "@/api/dndWrapper";
+	import { getSwedishRecordingType } from "@/api/lang";
 
 	export let program: BroadcastProgram | null = null;
 	export let isOpen = false;
@@ -23,7 +14,6 @@
 	const dispatch = createEventDispatcher();
 
 	let selectedRecordings: Array<{ id: string; uniqueKey: string }> = [];
-	let availableRecordings: Recording[] = [];
 	let allRecordings: Recording[] = [];
 	let loading = false;
 	let loadingRecordings = true;
@@ -33,9 +23,6 @@
 	let sortBy: "title" | "edited_at" | "author" = "title";
 	let sortOrder: "asc" | "desc" = "asc";
 	let searchQuery = "";
-
-	// Refs for drop zones
-	let selectedListRef: HTMLElement;
 
 	$: if (isOpen && program) {
 		loadRecordings().then(() => loadFormData());
@@ -85,8 +72,8 @@
 					bVal = b.title || "";
 					break;
 				case "edited_at":
-					aVal = a.edited_at || a.created_at || "";
-					bVal = b.edited_at || b.created_at || "";
+					aVal = a.edited_at || a.uploaded_at || "";
+					bVal = b.edited_at || b.uploaded_at || "";
 					break;
 				case "author":
 					aVal = a.author || "";
@@ -114,7 +101,7 @@
 		// Convert simple array to array of objects with unique keys
 		selectedRecordings = Array.isArray(program.recordings)
 			? program.recordings.map((id, index) => ({
-					id,
+					id: id as string,
 					uniqueKey: `${id}-${Date.now()}-${index}`,
 				}))
 			: [];
@@ -246,7 +233,7 @@
 		if (dragData.type === "available-recording") {
 			const newItem = {
 				id: dragData.id,
-				uniqueKey: Date.now(),
+				uniqueKey: String(Date.now()),
 			};
 
 			if (dropIndex !== undefined && dropIndex >= 0) {
@@ -465,7 +452,6 @@
 						{:else if selectedRecordings.length === 0}
 							<div
 								class="recording-list selected-list empty"
-								bind:this={selectedListRef}
 								role="listbox"
 								aria-label="Selected recordings"
 								use:dropzone={{
@@ -479,7 +465,6 @@
 							</div>
 						{:else}
 							<div
-								bind:this={selectedListRef}
 								class="recording-list selected-list"
 								use:sortable={{
 									items: selectedRecordings,
