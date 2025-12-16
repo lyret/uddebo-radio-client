@@ -2,7 +2,8 @@
 	import Layout from "@/components/Layout.svelte";
 	import Radio from "@/components/Radio.svelte";
 	import AdminControls from "@/components/AdminControls.svelte";
-	import { isAdmin } from "@/api";
+	import SnowEffect from "@/components/SnowEffect.svelte";
+	import { isAdmin, isAuthenticated } from "@/api";
 	import {
 		currentlyPlayingMedium,
 		nextRecording,
@@ -32,6 +33,15 @@
 	let display1Text = "";
 	let display2Text = "";
 	let display3Text = "";
+
+	// Check if it's winter months (December, January, February)
+	const isWinter = (() => {
+		const month = new Date().getMonth();
+		return month === 11 || month === 0 || month === 1; // 11=Dec, 0=Jan, 1=Feb
+	})();
+
+	// Show snow effect if winter and not signed in
+	$: showSnow = isWinter && !$isAuthenticated;
 
 	/**
 	 * Formats time duration into a readable string
@@ -362,7 +372,17 @@
 	});
 </script>
 
+<!-- Winter background wrapper -->
+{#if isWinter}
+	<div class="winter-background"></div>
+{/if}
+
 <Layout />
+
+<!-- Snow effect for winter when not signed in -->
+{#if showSnow}
+	<SnowEffect />
+{/if}
 
 <!-- Hidden audio element -->
 <audio bind:this={audioElement} />
@@ -375,6 +395,7 @@
 		display1={display1Text}
 		display2={display2Text}
 		display3={display3Text}
+		description={$currentlyPlayingMedium?.recording.description}
 	/>
 	{#if instructions}
 		<div class="instructions" transition:fade>
@@ -389,6 +410,17 @@
 </footer>
 
 <style>
+	/* Winter background */
+	.winter-background {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: linear-gradient(to bottom, #e0e0e0 0%, #ffffff 100%);
+		z-index: -200;
+	}
+
 	footer {
 		z-index: -100;
 		position: fixed;

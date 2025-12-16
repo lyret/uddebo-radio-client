@@ -43,3 +43,6 @@ $danger-dark: findDarkColor($danger);
 @import "bulma/sass/layout/_all";
 
 // Custom styles can be added below
+
+// Import snow effect styles
+@import "./components/snowEffect.scss";

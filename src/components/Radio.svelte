@@ -8,30 +8,78 @@
 	export let display1: string | undefined = undefined;
 	export let display2: string | undefined = undefined;
 	export let display3: string | undefined = undefined;
+	export let description: string | undefined = undefined;
 
 	// Check if display3 is a URL
 	$: isDisplay3Url =
 		display3 && (display3.startsWith("http://") || display3.startsWith("https://"));
+
+	// State for showing description
+	let showDescription = false;
 
 	const dispatch = createEventDispatcher<{ power: boolean }>();
 
 	export function togglePower() {
 		power = !power;
 		dispatch("power", power);
+		// Reset description view when turning off
+		if (!power) {
+			showDescription = false;
+		}
+	}
+
+	function toggleDescription() {
+		if (description) {
+			showDescription = !showDescription;
+		}
 	}
 </script>
 
 <div class="wrapper">
 	<!-- Cover image area -->
 	<div class="cover-area" class:is-on={power}>
-		{#if power && coverUrl}
-			<img
-				src={coverUrl}
-				alt="Album cover"
-				class="cover-image"
-				in:scale={{ duration: 800, opacity: 0, start: 0.2, easing: quintOut }}
+		{#if power && !showDescription && coverUrl}
+			<button
+				class="cover-button"
+				on:click={toggleDescription}
+				disabled={!description}
+				aria-label={description ? "Show description" : "No description available"}
+			>
+				<img
+					src={coverUrl}
+					alt="Album cover"
+					class="cover-image"
+					in:scale={{ duration: 800, opacity: 0, start: 0.2, easing: quintOut }}
+					out:fade={{ duration: 300 }}
+				/>
+				{#if description}
+					<div class="info-icon" in:fade={{ duration: 200 }}>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+							/>
+						</svg>
+					</div>
+				{/if}
+			</button>
+		{:else if power && showDescription}
+			<button
+				class="description-area"
+				on:click={toggleDescription}
+				in:fade={{ duration: 300 }}
 				out:fade={{ duration: 300 }}
-			/>
+			>
+				<div class="description-content">
+					{#if description}
+						{#each description.split("\n\n") as paragraph, i}
+							<p class:program-description={i > 0 && description.split("\n\n").length > 1}>
+								{paragraph}
+							</p>
+						{/each}
+					{/if}
+				</div>
+				<div class="close-icon">✕</div>
+			</button>
 		{/if}
 		{#if power}
 			<div class="crt-lines" />
@@ -107,11 +155,100 @@
 		animation: crt-turn-on 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
 	}
 
+	.cover-button {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		padding: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+	}
+
+	.cover-button:disabled {
+		cursor: default;
+	}
+
 	.cover-image {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
 		animation: crt-flicker 0.15s infinite;
+	}
+
+	.info-icon {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		width: 24px;
+		height: 24px;
+		background: rgba(0, 0, 0, 0.7);
+		border-radius: 50%;
+		padding: 2px;
+		color: #cd4276;
+		opacity: 0.8;
+		transition: opacity 0.2s ease;
+	}
+
+	.cover-button:hover .info-icon {
+		opacity: 1;
+	}
+
+	.info-icon svg {
+		width: 100%;
+		height: 100%;
+	}
+
+	.description-area {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		padding: 1rem;
+		background: rgba(0, 0, 0, 0.95);
+		border: none;
+		cursor: pointer;
+		overflow-y: auto;
+		text-align: left;
+		color: #cd4276;
+		font-family: monospace;
+		font-size: 0.75rem;
+		line-height: 1.4;
+	}
+
+	.description-content {
+		padding-right: 20px;
+	}
+
+	.description-content p {
+		margin: 0 0 0.5rem 0;
+	}
+
+	.description-content p.program-description {
+		margin-top: 1rem;
+		padding-top: 0.5rem;
+		font-style: italic;
+		opacity: 0.8;
+	}
+
+	.close-icon {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		width: 20px;
+		height: 20px;
+		background: rgba(0, 0, 0, 0.7);
+		border-radius: 50%;
+		color: #cd4276;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 14px;
+		opacity: 0.8;
+		transition: opacity 0.2s ease;
+	}
+
+	.description-area:hover .close-icon {
+		opacity: 1;
 	}
 
 	/* Display area - positioned absolute over the radio */
@@ -355,6 +492,26 @@
 		}
 		.display.row-3 {
 			font-size: 4.5vw;
+		}
+
+		.description-area {
+			font-size: 3.5vw;
+		}
+
+		.info-icon {
+			width: 7vw;
+			height: 7vw;
+			top: 2.5vw;
+			right: 2.5vw;
+			padding: 1vw;
+		}
+
+		.close-icon {
+			width: 6vw;
+			height: 6vw;
+			top: 2.5vw;
+			right: 2.5vw;
+			font-size: 4vw;
 		}
 
 		.power-button {

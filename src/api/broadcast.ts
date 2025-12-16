@@ -18,6 +18,7 @@ interface PlayableRecording {
 	audioUrl: string;
 	coverUrl?: string;
 	linkOutUrl?: string;
+	description?: string;
 	startTime: Date;
 	endTime: Date;
 }
@@ -65,6 +66,7 @@ const whiteNoiseRecording: PlayableRecording = {
 	audioUrl: "/white-noise.mp3",
 	coverUrl: undefined,
 	linkOutUrl: undefined,
+	description: undefined,
 	startTime: new Date(0),
 	endTime: new Date(0),
 };
@@ -457,6 +459,16 @@ async function _parseRecordings(
 				const startTime = new Date(indexTime);
 				const endTime = new Date(indexTime.getTime() + (recording.duration || 0) * 1000 + 1000);
 
+				// Combine recording description with program description
+				let combinedDescription: string | undefined = undefined;
+				if (recording.description && program.description) {
+					combinedDescription = `${recording.description}\n\n${program.description}`;
+				} else if (recording.description) {
+					combinedDescription = recording.description;
+				} else if (program.description) {
+					combinedDescription = program.description;
+				}
+
 				parsedRecordings.push({
 					id: `${String(recording.id)}_${index}`, // Add the order number to the unique for repetitions
 					title: recording.title || "",
@@ -465,6 +477,7 @@ async function _parseRecordings(
 					audioUrl: String(recording.file_url || ""),
 					coverUrl: recording.cover_url || program.cover_url || DEFAULT_COVER_URL,
 					linkOutUrl: recording.link_out_url || undefined,
+					description: combinedDescription,
 					startTime,
 					endTime,
 				});
