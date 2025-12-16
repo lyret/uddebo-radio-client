@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-	import { Save, Image, FileText, Trash2 } from "lucide-svelte";
+	import { createEventDispatcher, onMount } from "svelte";
+	import { Save, Image, FileText, Trash2, Info } from "lucide-svelte";
 	import type { RecordingType } from "@/api/supabase/types";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
 	import { validateImageFile, validateCaptionFile } from "@/api/fileUpload";
@@ -37,17 +37,38 @@
 		captionsUrl: null as string | null,
 	};
 
+	// Initialize with the bound prop values when component mounts
+	let initialized = false;
+
+	onMount(() => {
+		if (!initialized) {
+			initialValues = {
+				title,
+				author,
+				description,
+				type,
+				linkOutUrl,
+				coverUrl,
+				captionsUrl,
+			};
+			initialized = true;
+		}
+	});
+
 	// Track if any values have changed
 	let hasChanges = false;
 
 	$: hasChanges =
-		title !== initialValues.title ||
-		author !== initialValues.author ||
-		description !== initialValues.description ||
-		type !== initialValues.type ||
-		linkOutUrl !== initialValues.linkOutUrl ||
-		coverUrl !== initialValues.coverUrl ||
-		captionsUrl !== initialValues.captionsUrl;
+		initialized &&
+		(title !== initialValues.title ||
+			author !== initialValues.author ||
+			description !== initialValues.description ||
+			type !== initialValues.type ||
+			linkOutUrl !== initialValues.linkOutUrl ||
+			coverUrl !== initialValues.coverUrl ||
+			captionsUrl !== initialValues.captionsUrl ||
+			selectedCoverFile !== null ||
+			selectedCaptionsFile !== null);
 
 	/**
 	 * Initialize the form with values and store them as initial values
@@ -80,8 +101,12 @@
 			captionsUrl: values.captionsUrl || null,
 		};
 
-		// Reset hasChanges after initialization
-		hasChanges = false;
+		// Mark as initialized and reset file selections
+		initialized = true;
+		selectedCoverFile = null;
+		selectedCaptionsFile = null;
+		if (coverFileInput) coverFileInput.value = "";
+		if (captionsFileInput) captionsFileInput.value = "";
 	}
 
 	/**
@@ -128,6 +153,8 @@
 			description,
 			type,
 			link_out_url: linkOutUrl,
+			coverFile: selectedCoverFile,
+			captionsFile: selectedCaptionsFile,
 		});
 
 		// Update initial values after successful save
@@ -176,18 +203,6 @@
 				return;
 			}
 			selectedCaptionsFile = file;
-		}
-	}
-
-	function uploadCover() {
-		if (selectedCoverFile) {
-			dispatch("uploadCover", { file: selectedCoverFile });
-		}
-	}
-
-	function uploadCaptions() {
-		if (selectedCaptionsFile) {
-			dispatch("uploadCaptions", { file: selectedCaptionsFile });
 		}
 	}
 
@@ -323,23 +338,20 @@
 		</div>
 
 		{#if selectedCoverFile}
-			<button
-				class="button is-primary is-small"
-				on:click={uploadCover}
-				disabled={uploadingCover}
-				class:is-loading={uploadingCover}
-				type="button"
-			>
-				Ladda upp bild
-			</button>
-			<button
-				class="button is-text is-small"
-				on:click={clearCoverFile}
-				disabled={uploadingCover}
-				type="button"
-			>
-				Rensa
-			</button>
+			<div class="help">
+				<span class="icon is-small">
+					<Info size={14} />
+				</span>
+				<span>Bilden kommer att laddas upp när du sparar ändringarna</span>
+				<button
+					class="button is-text is-small ml-2"
+					on:click={clearCoverFile}
+					disabled={uploadingCover}
+					type="button"
+				>
+					Rensa
+				</button>
+			</div>
 		{/if}
 
 		{#if coverUrl}
@@ -391,23 +403,20 @@
 		</div>
 
 		{#if selectedCaptionsFile}
-			<button
-				class="button is-primary is-small"
-				on:click={uploadCaptions}
-				disabled={uploadingCaptions}
-				class:is-loading={uploadingCaptions}
-				type="button"
-			>
-				Ladda upp textfil
-			</button>
-			<button
-				class="button is-text is-small"
-				on:click={clearCaptionsFile}
-				disabled={uploadingCaptions}
-				type="button"
-			>
-				Rensa
-			</button>
+			<div class="help">
+				<span class="icon is-small">
+					<Info size={14} />
+				</span>
+				<span>Textfilen kommer att laddas upp när du sparar ändringarna</span>
+				<button
+					class="button is-text is-small ml-2"
+					on:click={clearCaptionsFile}
+					disabled={uploadingCaptions}
+					type="button"
+				>
+					Rensa
+				</button>
+			</div>
 		{/if}
 
 		<p class="help">För transkriptioner, undertexter eller sångtexter</p>
@@ -430,23 +439,21 @@
 		{/if}
 	</div>
 
-	{#if hasChanges}
-		<div class="field">
-			<div class="buttons is-right">
-				<button
-					class="button is-primary is-small"
-					type="submit"
-					disabled={disabled || saving}
-					class:is-loading={saving}
-				>
-					<span class="icon is-small">
-						<Save size={16} />
-					</span>
-					<span>Spara ändringar</span>
-				</button>
-			</div>
+	<div class="field">
+		<div class="buttons is-right">
+			<button
+				class="button is-primary"
+				type="submit"
+				disabled={!hasChanges || disabled || saving}
+				class:is-loading={saving}
+			>
+				<span class="icon">
+					<Save size={16} />
+				</span>
+				<span>Spara ändringar</span>
+			</button>
 		</div>
-	{/if}
+	</div>
 </form>
 
 <style>

@@ -324,11 +324,26 @@
 	}
 
 	@media (orientation: portrait) and (max-width: 700px) {
-		.wrapper {
-			background-color: black;
-		}
 		.radio-image {
 			background-image: url("/radio-mobile.png");
+		}
+
+		.cover-area {
+			left: 215px;
+			top: 298px;
+			width: 380px;
+			height: 380px;
+		}
+		.display-area {
+			left: 215px;
+			top: 18px;
+			width: 380px;
+			height: 204px;
+		}
+
+		.power-button {
+			position: absolute;
+			left: 522px;
 		}
 	}
 </style>

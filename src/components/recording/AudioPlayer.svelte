@@ -32,7 +32,7 @@
 		audioElement.src = audioUrl;
 	}
 
-	onMount(async () => {
+	async function initWaveform() {
 		if (!waveformContainer || !audioUrl) return;
 
 		try {
@@ -78,9 +78,29 @@
 		} catch (error) {
 			console.error("Failed to initialize waveform:", error);
 		}
+	}
+
+	onMount(async () => {
+		await initWaveform();
 	});
 
+	// Exported method to stop audio playback
+	export function stop() {
+		if (audioElement) {
+			audioElement.pause();
+			audioElement.currentTime = 0;
+		}
+		if (wavesurfer && wavesurfer.isPlaying()) {
+			wavesurfer.pause();
+		}
+		isPlaying = false;
+	}
+
 	onDestroy(() => {
+		// Stop audio playback
+		stop();
+
+		// Destroy waveform
 		if (wavesurfer) {
 			wavesurfer.destroy();
 		}

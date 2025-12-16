@@ -1,11 +1,22 @@
 <script lang="ts">
+	import { onMount } from "svelte";
 	import { Download, CheckCircle, AlertCircle } from "lucide-svelte";
 	import { formatFileSize } from "@/api/upload";
 	import { formatDuration } from "@/api/audioProcessing";
 	import type { Recording } from "@/api/supabase/types";
+	import {
+		extractAudioMetadata,
+		formatSampleRate,
+		formatBitrate,
+		formatChannels,
+		type AudioMetadata,
+	} from "@/api/audioMetadata";
 
 	export let recording: Recording;
 	export let coverUrl: string | null = null;
+
+	let audioMetadata: AudioMetadata | null = null;
+	let loadingMetadata = false;
 
 	function formatDateTime(dateString: string | null): string {
 		if (!dateString) return "Ej angiven";
@@ -13,6 +24,29 @@
 	}
 
 	$: displayCoverUrl = coverUrl || recording.cover_url;
+
+	// Load audio metadata when component mounts or recording changes
+	onMount(() => {
+		loadAudioMetadata();
+	});
+
+	$: if (recording?.file_url) {
+		loadAudioMetadata();
+	}
+
+	async function loadAudioMetadata() {
+		if (!recording?.file_url || loadingMetadata) return;
+
+		loadingMetadata = true;
+		try {
+			audioMetadata = await extractAudioMetadata(recording.file_url);
+		} catch (error) {
+			console.error("Failed to load audio metadata:", error);
+			audioMetadata = null;
+		} finally {
+			loadingMetadata = false;
+		}
+	}
 </script>
 
 <div class="metadata-section">
@@ -53,7 +87,7 @@
 	</div>
 
 	<div class="box">
-		<h4 class="title is-6 mb-3">Information</h4>
+		<h4 class="title is-6 mb-3">Filinformation</h4>
 		<div class="content is-small">
 			<p>
 				<strong>Storlek:</strong>
@@ -63,6 +97,30 @@
 				<strong>Längd:</strong>
 				{formatDuration(recording.duration)}
 			</p>
+			{#if audioMetadata}
+				<p>
+					<strong>Format:</strong>
+					{audioMetadata.format}
+				</p>
+				<p>
+					<strong>Samplingsfrekvens:</strong>
+					{formatSampleRate(audioMetadata.sampleRate)}
+				</p>
+				<p>
+					<strong>Bithastighet:</strong>
+					{formatBitrate(audioMetadata.bitrate)}
+				</p>
+				<p>
+					<strong>Kanaler:</strong>
+					{formatChannels(audioMetadata.channels)}
+				</p>
+			{:else if loadingMetadata}
+				<p class="has-text-grey">
+					<em>Laddar ljudinformation...</em>
+				</p>
+			{/if}
+		</div>
+		<div class="content is-small">
 			<p>
 				<strong>Uppladdad:</strong>
 				{formatDateTime(recording.uploaded_at)}

@@ -10,3 +10,4 @@ export * from "./recordingOperations";
 export * from "./audioProcessing";
 export * from "./fileUpload";
 export * from "./batchUpload";
+export * from "./audioMetadata";

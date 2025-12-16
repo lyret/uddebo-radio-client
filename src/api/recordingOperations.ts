@@ -15,13 +15,15 @@ export async function updateRecording(
 ): Promise<{ data: Recording | null; error: Error | null }> {
 	try {
 		// Get current user
-		const { data: { user } } = await supabase.auth.getUser();
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
 
 		// Add edited metadata
 		const updateData = {
 			...updates,
 			edited_at: new Date().toISOString(),
-			edited_by: user?.id || null
+			edited_by: user?.id || null,
 		};
 
 		const { data, error } = await supabase
@@ -37,7 +39,27 @@ export async function updateRecording(
 		console.error("Error updating recording:", error);
 		return {
 			data: null,
-			error: error instanceof Error ? error : new Error("Failed to update recording")
+			error: error instanceof Error ? error : new Error("Failed to update recording"),
+		};
+	}
+}
+
+/**
+ * Fetches a single recording from the database
+ */
+export async function getRecording(
+	id: number
+): Promise<{ data: Recording | null; error: Error | null }> {
+	try {
+		const { data, error } = await supabase.from("recordings").select("*").eq("id", id).single();
+
+		if (error) throw error;
+		return { data, error: null };
+	} catch (error) {
+		console.error("Error fetching recording:", error);
+		return {
+			data: null,
+			error: error instanceof Error ? error : new Error("Failed to fetch recording"),
 		};
 	}
 }
@@ -47,17 +69,14 @@ export async function updateRecording(
  */
 export async function deleteRecording(id: number): Promise<{ error: Error | null }> {
 	try {
-		const { error } = await supabase
-			.from("recordings")
-			.delete()
-			.eq("id", id);
+		const { error } = await supabase.from("recordings").delete().eq("id", id);
 
 		if (error) throw error;
 		return { error: null };
 	} catch (error) {
 		console.error("Error deleting recording:", error);
 		return {
-			error: error instanceof Error ? error : new Error("Failed to delete recording")
+			error: error instanceof Error ? error : new Error("Failed to delete recording"),
 		};
 	}
 }
@@ -65,16 +84,20 @@ export async function deleteRecording(id: number): Promise<{ error: Error | null
 /**
  * Marks a recording as OK (approved)
  */
-export async function markRecordingAsOK(id: number): Promise<{ data: Recording | null; error: Error | null }> {
+export async function markRecordingAsOK(
+	id: number
+): Promise<{ data: Recording | null; error: Error | null }> {
 	try {
-		const { data: { user } } = await supabase.auth.getUser();
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
 		const now = new Date().toISOString();
 
 		const updateData = {
 			okey_at: now,
 			okey_by: user?.id || null,
 			edited_at: now,
-			edited_by: user?.id || null
+			edited_by: user?.id || null,
 		};
 
 		const { data, error } = await supabase
@@ -90,7 +113,7 @@ export async function markRecordingAsOK(id: number): Promise<{ data: Recording |
 		console.error("Error marking recording as OK:", error);
 		return {
 			data: null,
-			error: error instanceof Error ? error : new Error("Failed to mark recording as OK")
+			error: error instanceof Error ? error : new Error("Failed to mark recording as OK"),
 		};
 	}
 }
@@ -98,16 +121,20 @@ export async function markRecordingAsOK(id: number): Promise<{ data: Recording |
 /**
  * Marks a recording as not OK (removes approval)
  */
-export async function markRecordingAsNotOK(id: number): Promise<{ data: Recording | null; error: Error | null }> {
+export async function markRecordingAsNotOK(
+	id: number
+): Promise<{ data: Recording | null; error: Error | null }> {
 	try {
-		const { data: { user } } = await supabase.auth.getUser();
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
 		const now = new Date().toISOString();
 
 		const updateData = {
 			okey_at: null,
 			okey_by: null,
 			edited_at: now,
-			edited_by: user?.id || null
+			edited_by: user?.id || null,
 		};
 
 		const { data, error } = await supabase
@@ -123,7 +150,7 @@ export async function markRecordingAsNotOK(id: number): Promise<{ data: Recordin
 		console.error("Error marking recording as not OK:", error);
 		return {
 			data: null,
-			error: error instanceof Error ? error : new Error("Failed to mark recording as not OK")
+			error: error instanceof Error ? error : new Error("Failed to mark recording as not OK"),
 		};
 	}
 }
@@ -149,15 +176,13 @@ export async function deleteRecordingCover(recording: Recording): Promise<{ erro
 		const actualFilePath = filePathParts.join("/");
 
 		// Delete from storage
-		const { error: storageError } = await supabase.storage
-			.from(bucket)
-			.remove([actualFilePath]);
+		const { error: storageError } = await supabase.storage.from(bucket).remove([actualFilePath]);
 
 		if (storageError) throw storageError;
 
 		// Update database
 		const { error: dbError } = await updateRecording(recording.id, {
-			cover_url: null
+			cover_url: null,
 		});
 
 		if (dbError) throw dbError;
@@ -165,7 +190,7 @@ export async function deleteRecordingCover(recording: Recording): Promise<{ erro
 	} catch (error) {
 		console.error("Error deleting cover image:", error);
 		return {
-			error: error instanceof Error ? error : new Error("Failed to delete cover image")
+			error: error instanceof Error ? error : new Error("Failed to delete cover image"),
 		};
 	}
 }
@@ -173,7 +198,9 @@ export async function deleteRecordingCover(recording: Recording): Promise<{ erro
 /**
  * Deletes the captions file of a recording
  */
-export async function deleteRecordingCaptions(recording: Recording): Promise<{ error: Error | null }> {
+export async function deleteRecordingCaptions(
+	recording: Recording
+): Promise<{ error: Error | null }> {
 	try {
 		if (!recording.captions_url) {
 			return { error: null };
@@ -191,15 +218,13 @@ export async function deleteRecordingCaptions(recording: Recording): Promise<{ e
 		const actualFilePath = filePathParts.join("/");
 
 		// Delete from storage
-		const { error: storageError } = await supabase.storage
-			.from(bucket)
-			.remove([actualFilePath]);
+		const { error: storageError } = await supabase.storage.from(bucket).remove([actualFilePath]);
 
 		if (storageError) throw storageError;
 
 		// Update database
 		const { error: dbError } = await updateRecording(recording.id, {
-			captions_url: null
+			captions_url: null,
 		});
 
 		if (dbError) throw dbError;
@@ -207,7 +232,7 @@ export async function deleteRecordingCaptions(recording: Recording): Promise<{ e
 	} catch (error) {
 		console.error("Error deleting captions file:", error);
 		return {
-			error: error instanceof Error ? error : new Error("Failed to delete captions file")
+			error: error instanceof Error ? error : new Error("Failed to delete captions file"),
 		};
 	}
 }
@@ -231,7 +256,7 @@ export async function createRecording(
 		console.error("Error creating recording:", error);
 		return {
 			data: null,
-			error: error instanceof Error ? error : new Error("Failed to create recording")
+			error: error instanceof Error ? error : new Error("Failed to create recording"),
 		};
 	}
 }
@@ -243,10 +268,7 @@ export async function createRecordings(
 	recordings: Omit<Recording, "id" | "created_at">[]
 ): Promise<{ data: Recording[] | null; error: Error | null }> {
 	try {
-		const { data, error } = await supabase
-			.from("recordings")
-			.insert(recordings)
-			.select();
+		const { data, error } = await supabase.from("recordings").insert(recordings).select();
 
 		if (error) throw error;
 		return { data, error: null };
@@ -254,7 +276,7 @@ export async function createRecordings(
 		console.error("Error creating recordings:", error);
 		return {
 			data: null,
-			error: error instanceof Error ? error : new Error("Failed to create recordings")
+			error: error instanceof Error ? error : new Error("Failed to create recordings"),
 		};
 	}
 }

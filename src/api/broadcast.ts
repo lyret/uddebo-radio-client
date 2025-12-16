@@ -130,7 +130,7 @@ function createBroadcastScheduleStore(): Readable<PlayableBroadcast> {
 						});
 					}
 				} catch (err) {
-					const errorMessage = err instanceof Error ? err.message : "Unknown error";
+					const errorMessage = err instanceof Error ? err.message : "Otydlighet i felet";
 					const errorState = {
 						program: null,
 						startTime: null,

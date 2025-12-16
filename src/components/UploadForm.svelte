@@ -360,7 +360,7 @@
 					type="submit"
 					class="button is-primary is-fullwidth is-medium"
 					disabled={!selectedFile || !title.trim() || uploading}
-					class:is-success={(selectedFile && title.trim()) || uploading}
+					class:is-danger={(selectedFile && title.trim()) || uploading}
 					class:is-loading={uploading}
 				>
 					<span class="icon">

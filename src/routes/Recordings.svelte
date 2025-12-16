@@ -157,13 +157,13 @@
 	});
 
 	function openEditor(recording: Recording) {
-		editingRecording = recording;
-		isEditorOpen = true;
-		// Don't stop audio if it's playing the same recording
-		if (playingId !== recording.id && playingId !== null) {
+		// Always stop audio when opening modal
+		if (playingId !== null) {
 			audioElement.pause();
 			playingId = null;
 		}
+		editingRecording = recording;
+		isEditorOpen = true;
 	}
 
 	function handleEditorClose() {
@@ -171,6 +171,7 @@
 		playingId = null;
 		editingRecording = null;
 		isEditorOpen = false;
+		loadRecordings();
 	}
 
 	function handleEditorUpdate(event: CustomEvent) {
@@ -210,7 +211,17 @@
 				</h2>
 			</div>
 			<div class="level-right">
-				<button class="button mr-3" on:click={() => (isBatchUploadOpen = true)}>
+				<button
+					class="button mr-3"
+					on:click={() => {
+						// Stop any playing audio when opening batch upload modal
+						if (playingId !== null) {
+							audioElement.pause();
+							playingId = null;
+						}
+						isBatchUploadOpen = true;
+					}}
+				>
 					<span class="icon">
 						<Upload size={16} />
 					</span>
@@ -376,7 +387,10 @@
 											<button
 												class="icon-button"
 												title={recording.description}
-												on:click={() => toast.info(recording.description, { duration: 5000 })}
+												on:click={() =>
+													toast.info("Beskrivning:\n" + recording.description || "", {
+														duration: 5000,
+													})}
 											>
 												<span class="icon">
 													<Info size={16} />
@@ -387,7 +401,10 @@
 											<button
 												class="icon-button"
 												title={recording.link_out_url}
-												on:click={() => toast.info(recording.link_out_url, { duration: 5000 })}
+												on:click={() =>
+													toast.info("Extern länk:\n" + recording.link_out_url || "", {
+														duration: 5000,
+													})}
 											>
 												<span class="icon">
 													<ExternalLink size={16} />
@@ -448,7 +465,10 @@
 	<!-- Batch Upload Modal -->
 	<RecordingsBatchUploadModal
 		bind:isOpen={isBatchUploadOpen}
-		on:close={() => (isBatchUploadOpen = false)}
+		on:close={() => {
+			isBatchUploadOpen = false;
+			loadRecordings();
+		}}
 		on:updated={loadRecordings}
 	/>
 </Layout>

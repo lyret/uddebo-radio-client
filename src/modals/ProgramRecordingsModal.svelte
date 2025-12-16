@@ -283,14 +283,13 @@
 				<span class="icon">
 					<Music />
 				</span>
-				<span>Manage Program Recordings</span>
+				<span>Hantera programsättning för {program?.title || "?"}</span>
 			</p>
 			<button class="delete" aria-label="close" on:click={handleClose} disabled={loading}></button>
 		</header>
 		<section class="modal-card-body">
 			{#if program}
 				<div class="mb-4">
-					<h2 class="subtitle is-5 mb-2">Program: {program.title}</h2>
 					<p class="help">
 						Dra inspelningar från den vänstra panelen för att lägga till dem i programmet. Ändra
 						ordning genom att dra inom den högra panelen.
@@ -413,10 +412,16 @@
 											{#if recording.type}
 												<span
 													class="tag is-small ml-2"
-													class:is-primary={recording.type === "music"}
-													class:is-info={recording.type === "interview"}
-													class:is-success={recording.type === "narration"}
-													class:is-warning={recording.type === "other"}
+													class:is-info={recording.type === "music"}
+													class:is-success={recording.type === "news"}
+													class:is-warning={recording.type === "talk" ||
+														recording.type === "talkshow" ||
+														recording.type === "interview"}
+													class:is-primary={recording.type === "commentary"}
+													class:is-link={recording.type === "comedy"}
+													class:is-light={recording.type === "unknown" ||
+														recording.type === "other"}
+													class:is-dark={recording.type === "jingle" || recording.type === "poetry"}
 												>
 													{getSwedishRecordingType(recording.type)}
 												</span>
@@ -514,10 +519,17 @@
 												{#if recording.type}
 													<span
 														class="tag is-small ml-2"
-														class:is-primary={recording.type === "music"}
-														class:is-info={recording.type === "interview"}
-														class:is-success={recording.type === "narration"}
-														class:is-warning={recording.type === "other"}
+														class:is-info={recording.type === "music"}
+														class:is-success={recording.type === "news"}
+														class:is-warning={recording.type === "talk" ||
+															recording.type === "talkshow" ||
+															recording.type === "interview"}
+														class:is-primary={recording.type === "commentary"}
+														class:is-link={recording.type === "comedy"}
+														class:is-light={recording.type === "unknown" ||
+															recording.type === "other"}
+														class:is-dark={recording.type === "jingle" ||
+															recording.type === "poetry"}
 													>
 														{getSwedishRecordingType(recording.type)}
 													</span>
@@ -569,7 +581,7 @@
 		</section>
 		<footer class="modal-card-foot">
 			<button
-				class="button is-success"
+				class="button is-primary"
 				on:click={handleSave}
 				class:is-loading={loading}
 				disabled={loading}

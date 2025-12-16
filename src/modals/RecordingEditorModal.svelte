@@ -43,8 +43,12 @@
 	let uploadingCover = false;
 	let uploadingCaptions = false;
 
+	// Key to force AudioPlayer remount
+	let audioPlayerKey = 0;
+
 	// Form ref
 	let formComponent: RecordingInformationForm;
+	let audioPlayerComponent: AudioPlayer;
 
 	// Load recording data when opened
 	$: if (recording && isOpen) {
@@ -99,6 +103,10 @@
 	}
 
 	function closeModal() {
+		// Stop audio before closing
+		if (audioPlayerComponent) {
+			audioPlayerComponent.stop();
+		}
 		isOpen = false;
 		resetForm();
 		dispatch("close");
@@ -110,12 +118,50 @@
 		saving = true;
 		try {
 			const formData = event.detail;
+			let finalCoverUrl = coverUrl;
+			let finalCaptionsUrl = captionsUrl;
+
+			// Upload cover image if selected
+			if (formData.coverFile) {
+				uploadingCover = true;
+				try {
+					finalCoverUrl = await uploadCoverImage(formData.coverFile, "cover_images", "");
+				} catch (error) {
+					console.error("Cover upload error:", error);
+					toast.error("Kunde inte ladda upp omslagsbild");
+					return;
+				} finally {
+					uploadingCover = false;
+				}
+			}
+
+			// Upload captions file if selected
+			if (formData.captionsFile) {
+				uploadingCaptions = true;
+				try {
+					const { url, error: uploadError } = await uploadCaptionsFile(
+						formData.captionsFile,
+						recording.id
+					);
+					if (uploadError) throw uploadError;
+					finalCaptionsUrl = url;
+				} catch (error) {
+					console.error("Captions upload error:", error);
+					toast.error("Kunde inte ladda upp textfil");
+					return;
+				} finally {
+					uploadingCaptions = false;
+				}
+			}
+
 			const updateData = {
 				title: formData.title.trim(),
 				author: formData.author.trim() || null,
 				description: formData.description.trim() || null,
 				type: formData.type,
 				link_out_url: formData.link_out_url?.trim() || null,
+				cover_url: finalCoverUrl || null,
+				captions_url: finalCaptionsUrl || null,
 			};
 
 			const { data, error } = await updateRecording(recording.id, updateData);
@@ -124,6 +170,8 @@
 
 			if (data) {
 				recording = data;
+				coverUrl = data.cover_url || null;
+				captionsUrl = data.captions_url || null;
 				const changedType = updateData.type !== recording.type;
 				dispatch("updated", { recording: data, changedType });
 				toast.success("Ändringar sparade");
@@ -176,6 +224,8 @@
 			if (data) {
 				recording = data;
 				selectedAudioFile = null;
+				// Force AudioPlayer to remount with new audio URL
+				audioPlayerKey++;
 				dispatch("updated", { recording: data });
 				toast.success("Ljudfil uppladdad och ersatt");
 			}
@@ -189,72 +239,6 @@
 
 	async function handleReplace(event: CustomEvent<{ file: File }>) {
 		await handleAudioUpload(event);
-	}
-
-	async function handleCoverUpload(event: CustomEvent<{ file: File }>) {
-		if (!recording) return;
-
-		uploadingCover = true;
-		const file = event.detail.file;
-
-		try {
-			const url = await uploadCoverImage(file, "cover_images", "");
-
-			const { data, error } = await updateRecording(recording.id, {
-				cover_url: url,
-			});
-
-			if (error) throw error;
-
-			if (data) {
-				recording = data;
-				coverUrl = url;
-				if (formComponent) {
-					formComponent.updateCoverUrl(url);
-				}
-				dispatch("updated", { recording: data });
-				toast.success("Omslagsbild uppladdad");
-			}
-		} catch (error) {
-			console.error("Cover upload error:", error);
-			toast.error("Kunde inte ladda upp omslagsbild");
-		} finally {
-			uploadingCover = false;
-		}
-	}
-
-	async function handleCaptionsUpload(event: CustomEvent<{ file: File }>) {
-		if (!recording) return;
-
-		uploadingCaptions = true;
-		const file = event.detail.file;
-
-		try {
-			const { url, error: uploadError } = await uploadCaptionsFile(file, recording.id);
-
-			if (uploadError) throw uploadError;
-
-			const { data, error } = await updateRecording(recording.id, {
-				captions_url: url,
-			});
-
-			if (error) throw error;
-
-			if (data) {
-				recording = data;
-				captionsUrl = url;
-				if (formComponent) {
-					formComponent.updateCaptionsUrl(url);
-				}
-				dispatch("updated", { recording: data });
-				toast.success("Textfil uppladdad");
-			}
-		} catch (error) {
-			console.error("Captions upload error:", error);
-			toast.error("Kunde inte ladda upp textfil");
-		} finally {
-			uploadingCaptions = false;
-		}
 	}
 
 	async function handleDeleteCover() {
@@ -411,18 +395,21 @@
 			</header>
 
 			<section class="modal-card-body">
-				{#if recording}
+				{#if recording && isOpen}
 					<!-- Audio Player -->
 					{#if recording.file_url}
 						<div class="box mb-4">
 							<h4 class="title is-6 mb-3">Ljudspelare</h4>
-							<AudioPlayer
-								audioUrl={recording.file_url}
-								enableTrimming={true}
-								enableReplacement={true}
-								on:trim={handleTrim}
-								on:replace={handleReplace}
-							/>
+							{#key audioPlayerKey}
+								<AudioPlayer
+									bind:this={audioPlayerComponent}
+									audioUrl={recording.file_url}
+									enableTrimming={true}
+									enableReplacement={true}
+									on:trim={handleTrim}
+									on:replace={handleReplace}
+								/>
+							{/key}
 						</div>
 					{/if}
 
@@ -443,8 +430,6 @@
 								{uploadingCover}
 								{uploadingCaptions}
 								on:save={handleSave}
-								on:uploadCover={handleCoverUpload}
-								on:uploadCaptions={handleCaptionsUpload}
 								on:deleteCover={handleDeleteCover}
 								on:deleteCaptions={handleDeleteCaptions}
 								on:error={(e) => toast.error(e.detail.message)}
