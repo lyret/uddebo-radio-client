@@ -11,6 +11,11 @@
 	} from "@/api/broadcast";
 	import { onMount, onDestroy } from "svelte";
 	import { fly } from "svelte/transition";
+	import {
+		storeOriginalTitle,
+		updateDocumentTitle,
+		restoreDocumentTitle,
+	} from "@/api/documentTitle";
 
 	// Player state
 	let audioElement: HTMLAudioElement;
@@ -20,6 +25,25 @@
 
 	// Footer element reference
 	let footerElement: HTMLElement;
+
+	/**
+	 * Updates the browser document title based on playback state
+	 */
+	function updateBrowserTitle() {
+		if ($isPlaying && $currentlyPlayingMedium) {
+			if ($currentlyPlayingMedium.isWhiteNoise) {
+				updateDocumentTitle("▶ Ingen sändning - Uddebo Radio");
+			} else {
+				const title = $currentlyPlayingMedium.recording.title || "";
+				const track = $currentlyPlayingMedium.recording.author
+					? title + "(" + $currentlyPlayingMedium.recording.author + ")"
+					: title;
+				updateDocumentTitle(`▶ ${track} | Uddebo Radio`);
+			}
+		} else {
+			restoreDocumentTitle();
+		}
+	}
 
 	/**
 	 * Updates the Media Session API metadata for lock screen and notification controls
@@ -34,8 +58,8 @@
 			// Set metadata for regular tracks
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: $currentlyPlayingMedium.recording.title || "Uddebo Radio",
-				artist: $currentlyPlayingMedium.recording.author || "Live",
-				album: "Uddebo Radio - LIVE", // Indicating this is live radio
+				artist: $currentlyPlayingMedium.recording.author || "",
+				album: "Uddebo Radio",
 				artwork: $currentlyPlayingMedium.recording.coverUrl
 					? [
 							{
@@ -82,15 +106,15 @@
 						position: 0,
 					});
 				} catch (e) {
-					console.log("[Player] Could not set position state:", e);
+					console.warn("Could not set position state:", e);
 				}
 			}
 		} else {
 			// For white noise or no content
 			navigator.mediaSession.metadata = new MediaMetadata({
-				title: "Uddebo Radio",
-				artist: "Ingen sändning",
-				album: "LIVE",
+				title: "Ingen sändning",
+				artist: "",
+				album: "Uddebo Radio",
 			});
 			navigator.mediaSession.playbackState = $isPlaying ? "playing" : "paused";
 		}
@@ -118,6 +142,15 @@
 			navigator.mediaSession.setActionHandler("nexttrack", null); // Disable for live
 		}
 		navigator.mediaSession.setActionHandler("previoustrack", null); // Disable for live
+	}
+
+	// Reactive statement to update browser title when track or playing state changes
+	$: {
+		if ($isPlaying && $currentlyPlayingMedium) {
+			updateBrowserTitle();
+		} else if (!$isPlaying) {
+			updateBrowserTitle();
+		}
 	}
 
 	// Handle track changes while playing
@@ -153,8 +186,9 @@
 				instructions = "";
 			}
 
-			// Update media session
+			// Update media session and browser title
 			updateMediaSession();
+			updateBrowserTitle();
 		}
 	}
 
@@ -194,8 +228,9 @@
 					instructions = "";
 				}
 
-				// Update media session
+				// Update media session and browser title
 				updateMediaSession();
+				updateBrowserTitle();
 			}
 		} else {
 			instructions = "Tryck på strömknappen för att börja lyssna";
@@ -207,6 +242,8 @@
 			if ("mediaSession" in navigator) {
 				navigator.mediaSession.playbackState = "paused";
 			}
+			// Restore original browser title
+			updateBrowserTitle();
 		}
 	}
 
@@ -231,6 +268,9 @@
 
 	// Setup audio element event listeners
 	onMount(() => {
+		// Store the original document title
+		storeOriginalTitle();
+
 		if (audioElement) {
 			audioElement.addEventListener("ended", handleTrackEnded);
 			audioElement.addEventListener("error", handleAudioError);
@@ -244,9 +284,10 @@
 			});
 		}
 
-		// Initialize media session if playing
+		// Initialize media session and browser title if playing
 		if ($isPlaying) {
 			updateMediaSession();
+			updateBrowserTitle();
 		}
 	});
 
@@ -264,6 +305,8 @@
 			navigator.mediaSession.metadata = null;
 			navigator.mediaSession.playbackState = "none";
 		}
+		// Restore original browser title
+		restoreDocumentTitle();
 	});
 </script>
 
