@@ -21,6 +21,105 @@
 	// Footer element reference
 	let footerElement: HTMLElement;
 
+	/**
+	 * Updates the Media Session API metadata for lock screen and notification controls
+	 */
+	function updateMediaSession() {
+		if (!("mediaSession" in navigator)) {
+			console.log("[Player] Media Session API not supported");
+			return;
+		}
+
+		if ($currentlyPlayingMedium && !$currentlyPlayingMedium.isWhiteNoise) {
+			// Set metadata for regular tracks
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: $currentlyPlayingMedium.recording.title || "Uddebo Radio",
+				artist: $currentlyPlayingMedium.recording.author || "Live",
+				album: "Uddebo Radio - LIVE", // Indicating this is live radio
+				artwork: $currentlyPlayingMedium.recording.coverUrl
+					? [
+							{
+								src: $currentlyPlayingMedium.recording.coverUrl,
+								sizes: "512x512",
+								type: "image/jpeg",
+							},
+							{
+								src: $currentlyPlayingMedium.recording.coverUrl,
+								sizes: "256x256",
+								type: "image/jpeg",
+							},
+							{
+								src: $currentlyPlayingMedium.recording.coverUrl,
+								sizes: "128x128",
+								type: "image/jpeg",
+							},
+							{
+								src: $currentlyPlayingMedium.recording.coverUrl,
+								sizes: "96x96",
+								type: "image/jpeg",
+							},
+						]
+					: [],
+			});
+
+			// Set playback state
+			navigator.mediaSession.playbackState = $isPlaying ? "playing" : "paused";
+
+			// For live streams, we can set position state to indicate it's live
+			// by setting duration to Infinity or a very large number
+			try {
+				navigator.mediaSession.setPositionState({
+					duration: Infinity, // This indicates a live stream
+					playbackRate: 1,
+					position: 0,
+				});
+			} catch {
+				// Some browsers might not support Infinity, try a large number instead
+				try {
+					navigator.mediaSession.setPositionState({
+						duration: 999999, // Very large duration to simulate live
+						playbackRate: 1,
+						position: 0,
+					});
+				} catch (e) {
+					console.log("[Player] Could not set position state:", e);
+				}
+			}
+		} else {
+			// For white noise or no content
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: "Uddebo Radio",
+				artist: "Ingen sändning",
+				album: "LIVE",
+			});
+			navigator.mediaSession.playbackState = $isPlaying ? "playing" : "paused";
+		}
+
+		// Set up action handlers
+		navigator.mediaSession.setActionHandler("play", () => {
+			if (!powerOn) {
+				togglePlayback(true);
+			}
+		});
+
+		navigator.mediaSession.setActionHandler("pause", () => {
+			if (powerOn) {
+				togglePlayback(false);
+			}
+		});
+
+		// For live streams, we might want to disable or customize seek behavior
+		navigator.mediaSession.setActionHandler("seekbackward", null);
+		navigator.mediaSession.setActionHandler("seekforward", null);
+		navigator.mediaSession.setActionHandler("seekto", null);
+
+		// Handle next/previous if you want to show upcoming tracks
+		if ($nextRecording) {
+			navigator.mediaSession.setActionHandler("nexttrack", null); // Disable for live
+		}
+		navigator.mediaSession.setActionHandler("previoustrack", null); // Disable for live
+	}
+
 	// Handle track changes while playing
 	$: if ($currentlyPlayingMedium && audioElement && $isPlaying) {
 		const newTrackId = $currentlyPlayingMedium.recording.id;
@@ -53,6 +152,9 @@
 			} else {
 				instructions = "";
 			}
+
+			// Update media session
+			updateMediaSession();
 		}
 	}
 
@@ -91,12 +193,19 @@
 				} else {
 					instructions = "";
 				}
+
+				// Update media session
+				updateMediaSession();
 			}
 		} else {
 			instructions = "Tryck på strömknappen för att börja lyssna";
 			currentTrackId = null;
 			if (audioElement) {
 				audioElement.pause();
+			}
+			// Update media session to paused state
+			if ("mediaSession" in navigator) {
+				navigator.mediaSession.playbackState = "paused";
 			}
 		}
 	}
@@ -134,6 +243,11 @@
 				behavior: "smooth",
 			});
 		}
+
+		// Initialize media session if playing
+		if ($isPlaying) {
+			updateMediaSession();
+		}
 	});
 
 	// Cleanup
@@ -144,6 +258,11 @@
 			audioElement.removeEventListener("ended", handleTrackEnded);
 			audioElement.removeEventListener("error", handleAudioError);
 			audioElement.pause();
+		}
+		// Clear media session
+		if ("mediaSession" in navigator) {
+			navigator.mediaSession.metadata = null;
+			navigator.mediaSession.playbackState = "none";
 		}
 	});
 </script>
