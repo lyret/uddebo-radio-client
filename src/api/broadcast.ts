@@ -17,6 +17,7 @@ interface PlayableRecording {
 	duration: number;
 	audioUrl: string;
 	coverUrl?: string;
+	linkOutUrl?: string;
 	startTime: Date;
 	endTime: Date;
 }
@@ -63,6 +64,7 @@ const whiteNoiseRecording: PlayableRecording = {
 	duration: 60, // 1 minute loop
 	audioUrl: "/white-noise.mp3",
 	coverUrl: undefined,
+	linkOutUrl: undefined,
 	startTime: new Date(0),
 	endTime: new Date(0),
 };
@@ -462,6 +464,7 @@ async function _parseRecordings(
 					duration: Number(recording.duration) || 0,
 					audioUrl: String(recording.file_url || ""),
 					coverUrl: recording.cover_url || program.cover_url || DEFAULT_COVER_URL,
+					linkOutUrl: recording.link_out_url || undefined,
 					startTime,
 					endTime,
 				});

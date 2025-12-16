@@ -8,7 +8,9 @@
 		nextRecording,
 		isPlaying,
 		notifyTrackFinished,
+		broadcastScheduleStore,
 	} from "@/api/broadcast";
+	import { effectiveDateTime } from "@/api/datetime";
 	import { onMount, onDestroy } from "svelte";
 	import { fade } from "svelte/transition";
 	import {
@@ -25,6 +27,36 @@
 
 	// Footer element reference
 	let footerElement: HTMLElement;
+
+	// Display text for the radio
+	let display1Text = "";
+	let display2Text = "";
+	let display3Text = "";
+
+	/**
+	 * Formats time duration into a readable string
+	 */
+	function formatTimeUntil(milliseconds: number): string {
+		const seconds = Math.floor(milliseconds / 1000);
+		const minutes = Math.floor(seconds / 60);
+		const hours = Math.floor(minutes / 60);
+		const days = Math.floor(hours / 24);
+
+		if (days > 0) {
+			return `Börjar om ${days} dag${days > 1 ? "ar" : ""}`;
+		} else if (hours > 0) {
+			const remainingMinutes = minutes % 60;
+			if (remainingMinutes > 0) {
+				return `Om ${hours} tim ${remainingMinutes} min`;
+			}
+			return `Börjar om ${hours} timm${hours > 1 ? "ar" : "e"}`;
+		} else if (minutes > 0) {
+			return `Börjar om ${minutes} minut${minutes > 1 ? "er" : ""}`;
+		} else if (seconds > 0) {
+			return `Börjar om ${seconds} sekund${seconds > 1 ? "er" : ""}`;
+		}
+		return "";
+	}
 
 	/**
 	 * Updates the browser document title based on playback state
@@ -132,6 +164,59 @@
 		}
 	}
 
+	// Reactive statement to update display texts
+	$: {
+		if ($currentlyPlayingMedium) {
+			if ($currentlyPlayingMedium.isWhiteNoise) {
+				// When white noise is playing
+				display1Text = "Ingen sändning";
+				display2Text = "";
+
+				// Calculate time until next broadcast
+				if ($nextRecording && $effectiveDateTime) {
+					const timeUntilNext = $nextRecording.startTime.getTime() - $effectiveDateTime.getTime();
+					display2Text = $broadcastScheduleStore?.program?.title || "";
+					if (timeUntilNext > 0) {
+						display3Text = formatTimeUntil(timeUntilNext);
+					} else {
+						display3Text = "";
+					}
+				} else if (
+					$broadcastScheduleStore?.recordings?.length > 0 &&
+					$broadcastScheduleStore.startTime &&
+					$effectiveDateTime
+				) {
+					// Check if the broadcast hasn't started yet
+					const timeUntilStart =
+						$broadcastScheduleStore.startTime.getTime() - $effectiveDateTime.getTime();
+					if (timeUntilStart > 0) {
+						display3Text = formatTimeUntil(timeUntilStart);
+					} else {
+						display3Text = "";
+					}
+				} else {
+					display3Text = "";
+				}
+			} else {
+				// When a real recording is playing
+				display1Text = $currentlyPlayingMedium.recording.title || "";
+				display2Text = $currentlyPlayingMedium.recording.author || "";
+
+				// Check for external link
+				if ($currentlyPlayingMedium.recording.linkOutUrl) {
+					display3Text = $currentlyPlayingMedium.recording.linkOutUrl;
+				} else {
+					display3Text = "";
+				}
+			}
+		} else {
+			// No medium playing
+			display1Text = "";
+			display2Text = "";
+			display3Text = "";
+		}
+	}
+
 	// Handle track changes while playing
 	$: if ($currentlyPlayingMedium && audioElement && $isPlaying) {
 		const newTrackId = $currentlyPlayingMedium.recording.id;
@@ -158,13 +243,6 @@
 				instructions = "Kunde inte spela upp ljudet";
 			});
 
-			// Update instructions based on whether it's white noise
-			if ($currentlyPlayingMedium.isWhiteNoise) {
-				instructions = "Ingen sändning just nu";
-			} else {
-				instructions = "";
-			}
-
 			// Update media session and browser title
 			updateMediaSession();
 			updateBrowserTitle();
@@ -177,6 +255,7 @@
 		$isPlaying = power;
 
 		if (power) {
+			instructions = "";
 			if (audioElement && $currentlyPlayingMedium) {
 				currentTrackId = $currentlyPlayingMedium.recording.id;
 				console.log("[Player] Starting playback:", $currentlyPlayingMedium.recording.title);
@@ -199,13 +278,6 @@
 					$isPlaying = false;
 					powerOn = false;
 				});
-
-				// Update instructions
-				if ($currentlyPlayingMedium.isWhiteNoise) {
-					instructions = "Ingen sändning just nu";
-				} else {
-					instructions = "";
-				}
 
 				// Update media session and browser title
 				updateMediaSession();
@@ -300,9 +372,9 @@
 		bind:power={powerOn}
 		on:power={(e) => togglePlayback(e.detail)}
 		coverUrl={$currentlyPlayingMedium?.recording.coverUrl}
-		display1={$currentlyPlayingMedium?.recording.title}
-		display2={$currentlyPlayingMedium?.recording.author}
-		display3={$nextRecording ? `Nästa: ${$nextRecording.title}` : ""}
+		display1={display1Text}
+		display2={display2Text}
+		display3={display3Text}
 	/>
 	{#if instructions}
 		<div class="instructions" transition:fade>

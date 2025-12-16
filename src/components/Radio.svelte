@@ -9,6 +9,10 @@
 	export let display2: string | undefined = undefined;
 	export let display3: string | undefined = undefined;
 
+	// Check if display3 is a URL
+	$: isDisplay3Url =
+		display3 && (display3.startsWith("http://") || display3.startsWith("https://"));
+
 	const dispatch = createEventDispatcher<{ power: boolean }>();
 
 	export function togglePower() {
@@ -43,7 +47,15 @@
 		{#if power}
 			<div class="display row-1" in:fade={{ duration: 1200, delay: 200 }}>{display1 || ""}</div>
 			<div class="display row-2" in:fade={{ duration: 1200, delay: 400 }}>{display2 || ""}</div>
-			<div class="display row-3" in:fade={{ duration: 1200, delay: 600 }}>{display3 || ""}</div>
+			<div class="display row-3" in:fade={{ duration: 1200, delay: 600 }}>
+				{#if isDisplay3Url}
+					<a href={display3} target="_blank" rel="noopener noreferrer" class="display-link">
+						{display3}
+					</a>
+				{:else}
+					{display3 || ""}
+				{/if}
+			</div>
 			<div class="crt-lines" />
 			<div class="crt-glow" />
 		{/if}
@@ -132,18 +144,27 @@
 		animation: crt-text-glow 2s ease-in-out infinite alternate;
 	}
 	.display.row-1 {
-		font-size: 0.875rem;
-		margin-bottom: 0.25rem;
+		font-size: 0.975rem;
+		margin-bottom: 0.3rem;
 	}
 
 	.display.row-2 {
-		font-size: 0.75rem;
-	}
-	.display.row-2 {
-		font-size: 0.75rem;
+		font-size: 0.85rem;
 	}
 	.display.row-3 {
-		font-size: 0.75rem;
+		font-size: 0.85rem;
+	}
+
+	.display-link {
+		color: inherit;
+		text-decoration: none;
+		opacity: 0.9;
+		transition: opacity 0.2s ease;
+	}
+
+	.display-link:hover {
+		opacity: 1;
+		text-decoration: underline;
 	}
 
 	.power-button {
