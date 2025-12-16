@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
 	import { FileAudio, Check, AlertCircle, X } from "lucide-svelte";
-	import { formatFileSize } from "@/api/fileUpload";
+	import { formatFileSize } from "@/api/upload";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
 	import type { RecordingType } from "@/api/supabase/types";
 
@@ -69,11 +69,7 @@
 		</div>
 		<div class="level-right">
 			{#if status === "pending" && !disabled}
-				<button
-					class="delete is-small"
-					aria-label="Remove"
-					on:click={handleRemove}
-				></button>
+				<button class="delete is-small" aria-label="Remove" on:click={handleRemove}></button>
 			{:else if status === "uploading"}
 				<progress class="progress is-small is-info" value={progress} max="100">
 					{progress}%

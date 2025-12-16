@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onMount, onDestroy, createEventDispatcher } from "svelte";
 	import { Play, Pause, Scissors } from "lucide-svelte";
-	import { initializeWaveform, createTrimRegion, syncWaveformWithAudio } from "@/api/audioProcessing";
+	import {
+		initializeWaveform,
+		createTrimRegion,
+		syncWaveformWithAudio,
+	} from "@/api/audioProcessing";
 	import type WaveSurfer from "wavesurfer.js";
 	import type RegionsPlugin from "wavesurfer.js/dist/plugins/regions.js";
 	import type { Region } from "wavesurfer.js/dist/plugins/regions.js";
@@ -33,8 +37,6 @@
 				container: waveformContainer,
 				url: audioUrl,
 				height: 100,
-				waveColor: "#3273dc",
-				progressColor: "#00d1b2"
 			});
 
 			wavesurfer = result.wavesurfer;
@@ -151,7 +153,7 @@
 
 		dispatch("trim", {
 			start: activeRegion.start,
-			end: activeRegion.end
+			end: activeRegion.end,
 		});
 	}
 
@@ -174,11 +176,7 @@
 	{#if wavesurfer}
 		<div class="field">
 			<div class="buttons">
-				<button
-					class="button is-primary"
-					on:click={togglePlayPause}
-					type="button"
-				>
+				<button class="button is-info is-dark is-small" on:click={togglePlayPause} type="button">
 					{#if isPlaying}
 						<span class="icon">
 							<Pause size={20} />
@@ -194,7 +192,7 @@
 
 				{#if enableTrimming && !showTrimControls}
 					<button
-						class="button is-info is-outlined"
+						class="button is-info is-outlined is-warning is-small"
 						on:click={enableTrim}
 						type="button"
 					>
@@ -213,27 +211,18 @@
 					<strong>Trimma ljudfil</strong>
 				</p>
 				<p class="mb-3">
-					Dra i kanterna på det markerade området för att välja vilken del som ska behållas.
-					Start: {trimStart.toFixed(1)}s - Slut: {trimEnd.toFixed(1)}s
+					Dra i kanterna på det markerade området för att välja vilken del som ska behållas. Start: {trimStart.toFixed(
+						1
+					)}s - Slut: {trimEnd.toFixed(1)}s
 				</p>
 				<div class="buttons">
-					<button
-						class="button is-success is-small"
-						on:click={applyTrim}
-						type="button"
-					>
+					<button class="button is-warning is-dark is-small" on:click={applyTrim} type="button">
 						<span class="icon">
 							<Scissors size={16} />
 						</span>
 						<span>Tillämpa trimning</span>
 					</button>
-					<button
-						class="button is-small"
-						on:click={cancelTrim}
-						type="button"
-					>
-						Avbryt
-					</button>
+					<button class="button is-small" on:click={cancelTrim} type="button"> Avbryt </button>
 				</div>
 			</div>
 		{/if}

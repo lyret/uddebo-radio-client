@@ -322,4 +322,13 @@
 			font-size: 0.5rem;
 		}
 	}
+
+	@media (orientation: portrait) and (max-width: 700px) {
+		.wrapper {
+			background-color: black;
+		}
+		.radio-image {
+			background-image: url("/radio-mobile.png");
+		}
+	}
 </style>

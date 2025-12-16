@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
 	import { Image, FileText, Upload, Trash2 } from "lucide-svelte";
-	import { needsAudioConversion } from "@/api/audioProcessing";
+	import { needsAudioConversion } from "@/api/audioConverter";
 	import { validateCaptionFile, validateImageFile } from "@/api/fileUpload";
 
 	export let coverUrl: string | null = null;
@@ -111,9 +111,7 @@
 	<div class="field">
 		<p class="label">
 			Omslagsbild
-			<span class="has-text-weight-normal has-text-grey">
-				(JPG, PNG, max 5MB)
-			</span>
+			<span class="has-text-weight-normal has-text-grey"> (JPG, PNG, max 5MB) </span>
 		</p>
 		<div class="file has-name is-fullwidth mb-2">
 			<label class="file-label">
@@ -139,7 +137,7 @@
 
 		{#if selectedCoverFile}
 			<button
-				class="button is-primary is-small"
+				class="button is-primary is-small is-rounded is-outlined"
 				on:click={uploadCover}
 				disabled={uploadingCover}
 				class:is-loading={uploadingCover}
@@ -163,7 +161,7 @@
 					Visa nuvarande omslagsbild
 				</a>
 				<button
-					class="button is-danger is-small is-outlined ml-2"
+					class="button is-danger is-small is-outlined is-rounded ml-2"
 					on:click={deleteCover}
 					disabled={uploadingCover}
 					type="button"
@@ -181,9 +179,7 @@
 	<div class="field">
 		<p class="label">
 			Textfil/Undertexter
-			<span class="has-text-weight-normal has-text-grey">
-				(VTT, SRT, TXT, max 1MB)
-			</span>
+			<span class="has-text-weight-normal has-text-grey"> (VTT, SRT, TXT, max 1MB) </span>
 		</p>
 		<div class="file has-name is-fullwidth mb-2">
 			<label class="file-label">
@@ -209,7 +205,7 @@
 
 		{#if selectedCaptionsFile}
 			<button
-				class="button is-primary is-small"
+				class="button is-primary is-small is-rounded is-outlined"
 				on:click={uploadCaptions}
 				disabled={uploadingCaptions}
 				class:is-loading={uploadingCaptions}
@@ -231,11 +227,9 @@
 
 		{#if captionsUrl}
 			<p class="help">
-				<a href={captionsUrl} target="_blank" rel="noopener noreferrer">
-					Visa nuvarande textfil
-				</a>
+				<a href={captionsUrl} target="_blank" rel="noopener noreferrer"> Visa nuvarande textfil </a>
 				<button
-					class="button is-danger is-small is-outlined ml-2"
+					class="button is-danger is-small is-outlined is-rounded ml-2"
 					on:click={deleteCaptions}
 					disabled={uploadingCaptions}
 					type="button"
@@ -253,9 +247,7 @@
 	<div class="field mt-4">
 		<p class="label">
 			Ersätt ljudfil
-			<span class="has-text-weight-normal has-text-grey">
-				(Alla ljudformat, max 50MB)
-			</span>
+			<span class="has-text-weight-normal has-text-grey"> (Alla ljudformat, max 50MB) </span>
 		</p>
 		<div class="file has-name is-fullwidth mb-2">
 			<label class="file-label">
@@ -288,7 +280,7 @@
 
 		{#if selectedAudioFile}
 			<button
-				class="button is-primary is-small"
+				class="button is-primary is-small is-rounded is-outlined"
 				on:click={uploadAudio}
 				disabled={uploading}
 				class:is-loading={uploading}
@@ -305,16 +297,14 @@
 				Avbryt
 			</button>
 
-			<p class="help is-danger mt-1">
-				Varning: Detta kommer att ersätta den nuvarande ljudfilen
-			</p>
+			<p class="help is-danger mt-1">Varning: Detta kommer att ersätta den nuvarande ljudfilen</p>
 
 			{#if needsAudioConversion(selectedAudioFile)}
 				<div class="notification is-info is-light mt-2">
 					<p class="is-size-7">
 						<strong>Automatisk konvertering:</strong>
-						Filen kommer att konverteras till MP3-format för bästa kompatibilitet.
-						Detta kan ta några sekunder extra.
+						Filen kommer att konverteras till MP3-format för bästa kompatibilitet. Detta kan ta några
+						sekunder extra.
 					</p>
 				</div>
 			{/if}

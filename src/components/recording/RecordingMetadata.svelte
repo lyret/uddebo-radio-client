@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Download, CheckCircle, AlertCircle } from "lucide-svelte";
-	import { formatFileSize } from "@/api/fileUpload";
+	import { formatFileSize } from "@/api/upload";
 	import { formatDuration } from "@/api/audioProcessing";
 	import type { Recording } from "@/api/supabase/types";
 
@@ -20,25 +20,31 @@
 		<h4 class="title is-6 mb-3">Information</h4>
 		<div class="content is-small">
 			<p>
-				<strong>Storlek:</strong> {formatFileSize(recording.file_size)}
+				<strong>Storlek:</strong>
+				{formatFileSize(recording.file_size)}
 			</p>
 			<p>
-				<strong>Längd:</strong> {formatDuration(recording.duration)}
+				<strong>Längd:</strong>
+				{formatDuration(recording.duration)}
 			</p>
 			<p>
-				<strong>Uppladdad:</strong> {formatDateTime(recording.uploaded_at)}
+				<strong>Uppladdad:</strong>
+				{formatDateTime(recording.uploaded_at)}
 			</p>
 			<p>
-				<strong>Uppladdare:</strong> {recording.uploaded_by || "Anonym"}
+				<strong>Uppladdare:</strong>
+				{recording.uploaded_by || "Anonym"}
 			</p>
 			{#if recording.edited_at && recording.edited_at !== recording.uploaded_at}
 				<p>
-					<strong>Senast ändrad:</strong> {formatDateTime(recording.edited_at)}
+					<strong>Senast ändrad:</strong>
+					{formatDateTime(recording.edited_at)}
 				</p>
 			{/if}
 			{#if recording.okey_at}
 				<p>
-					<strong>Godkänd:</strong> {formatDateTime(recording.okey_at)}
+					<strong>Godkänd:</strong>
+					{formatDateTime(recording.okey_at)}
 				</p>
 			{/if}
 		</div>
@@ -53,11 +59,7 @@
 		{/if}
 
 		<div class="field mt-3">
-			<a
-				href={recording.file_url}
-				download
-				class="button is-small is-fullwidth is-outlined"
-			>
+			<a href={recording.file_url} download class="button is-small is-fullwidth is-outlined">
 				<span class="icon">
 					<Download />
 				</span>
@@ -66,16 +68,22 @@
 		</div>
 	</div>
 
-	<div class="box" class:has-background-success-light={recording.okey_at !== null} class:has-background-warning-light={recording.okey_at === null}>
-		<h4 class="title is-6 mb-3" class:has-text-success={recording.okey_at !== null} class:has-text-warning={recording.okey_at === null}>
+	<div
+		class="box"
+		class:has-background-success-light={recording.okey_at !== null}
+		class:has-background-warning-light={recording.okey_at === null}
+	>
+		<h4
+			class="title is-6 mb-3"
+			class:has-text-success={recording.okey_at !== null}
+			class:has-text-warning={recording.okey_at === null}
+		>
 			{#if recording.okey_at === null}
 				<span class="icon">
 					<AlertCircle />
 				</span>
 				<br />
-				<span class="has-text-weight-semibold">
-					Väntar på godkännande
-				</span>
+				<span class="has-text-weight-semibold"> Väntar på godkännande </span>
 			{:else}
 				<span class="icon">
 					<CheckCircle />
@@ -86,6 +94,13 @@
 		</h4>
 		<div class="field">
 			<slot name="status-actions" />
+			<p class="help">
+				{#if recording.okey_at === null}
+					Markera inspelningen som godkänd för att den ska kunna spelas i radion
+				{:else}
+					Inspelningen är godkänd och kan spelas i radion
+				{/if}
+			</p>
 		</div>
 	</div>
 </div>

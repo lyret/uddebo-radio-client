@@ -3,7 +3,12 @@
  */
 
 import { supabase } from "./supabase";
-import { convertAudioToMp3, needsAudioConversion, getAudioFormatDescription, validateAudioFile } from "./audioConverter";
+import {
+	convertAudioToMp3,
+	needsAudioConversion,
+	getAudioFormatDescription,
+	validateAudioFile,
+} from "./audioConverter";
 import { getFilenameWithDate } from "./filename";
 import { toast } from "svelte-sonner";
 
@@ -59,7 +64,7 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
 		folder = "",
 		showProgress = true,
 		autoConvert = true,
-		maxSizeMB = 50
+		maxSizeMB = 50,
 	} = options;
 
 	let fileToUpload = inputFile;
@@ -78,13 +83,13 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
 		if (autoConvert && needsAudioConversion(inputFile)) {
 			if (showProgress) {
 				toast.info(`Konverterar ${getAudioFormatDescription(inputFile)} till MP3...`, {
-					description: "Detta säkerställer kompatibilitet med alla enheter"
+					description: "Detta säkerställer kompatibilitet med alla enheter",
 				});
 			}
 
 			const conversionResult = await convertAudioToMp3(inputFile, {
 				bitrate: 128,
-				showProgress
+				showProgress,
 			});
 
 			fileToUpload = conversionResult.file;
@@ -109,7 +114,9 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
 		}
 
 		// Get authenticated user
-		const { data: { user } } = await supabase.auth.getUser();
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
 		const userFolder = user?.id || "anonymous";
 
 		// Generate file path
@@ -132,9 +139,9 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
 		}
 
 		// Get public URL
-		const { data: { publicUrl } } = supabase.storage
-			.from(bucket)
-			.getPublicUrl(fileName);
+		const {
+			data: { publicUrl },
+		} = supabase.storage.from(bucket).getPublicUrl(fileName);
 
 		if (showProgress) {
 			toast.success("Ljudfil uppladdad!", { id: "audio-upload" });
@@ -146,13 +153,13 @@ export async function uploadAudioFile(options: AudioUploadOptions): Promise<Audi
 			file: fileToUpload,
 			duration,
 			wasConverted,
-			originalFile: originalFileInfo
+			originalFile: originalFileInfo,
 		};
 	} catch (error) {
 		if (showProgress) {
 			toast.error("Uppladdning misslyckades", {
 				id: "audio-upload",
-				description: error instanceof Error ? error.message : "Ett okänt fel uppstod"
+				description: error instanceof Error ? error.message : "Ett okänt fel uppstod",
 			});
 		}
 		throw error;
@@ -182,7 +189,9 @@ export async function uploadCoverImage(
 	}
 
 	// Get authenticated user
-	const { data: { user } } = await supabase.auth.getUser();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
 	const userFolder = user?.id || "anonymous";
 
 	// Generate file path
@@ -191,18 +200,16 @@ export async function uploadCoverImage(
 	const fileName = `${userFolder}/${folder}/${timestamp}.${fileExt}`;
 
 	// Upload to storage
-	const { error: uploadError } = await supabase.storage
-		.from(bucket)
-		.upload(fileName, file);
+	const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file);
 
 	if (uploadError) {
 		throw uploadError;
 	}
 
 	// Get public URL
-	const { data: { publicUrl } } = supabase.storage
-		.from(bucket)
-		.getPublicUrl(fileName);
+	const {
+		data: { publicUrl },
+	} = supabase.storage.from(bucket).getPublicUrl(fileName);
 
 	return publicUrl;
 }
@@ -224,35 +231,10 @@ export async function deleteStorageFile(url: string, bucket = "recordings"): Pro
 	const filePath = urlParts[1];
 
 	// Delete from storage
-	const { error } = await supabase.storage
-		.from(bucket)
-		.remove([filePath]);
+	const { error } = await supabase.storage.from(bucket).remove([filePath]);
 
 	if (error) {
 		throw error;
-	}
-}
-
-/**
- * Gets the duration of an audio file
- * @param file The audio file
- * @returns Duration in seconds
- */
-export async function getAudioDuration(file: File): Promise<number> {
-	const audio = new Audio();
-	const objectUrl = URL.createObjectURL(file);
-	audio.src = objectUrl;
-
-	try {
-		await new Promise((resolve, reject) => {
-			audio.addEventListener("loadedmetadata", resolve);
-			audio.addEventListener("error", reject);
-			audio.load();
-		});
-
-		return Math.floor(audio.duration);
-	} finally {
-		URL.revokeObjectURL(objectUrl);
 	}
 }
 

@@ -1,47 +1,23 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { X, Upload, FileAudio, AlertCircle, Check, Trash2 } from "lucide-svelte";
+	import { Upload } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
-	import type { Recording, RecordingType } from "@/api";
-	import { supabase, uploadAudioFile, getFilenameWithDate } from "@/api";
-	import { getSwedishRecordingType } from "@/api/lang";
+	import {
+		createUploadItems,
+		processBatchUpload,
+		validateBatchFiles,
+		type UploadItem,
+	} from "@/api/batchUpload";
+	import BatchUploadItem from "@/components/recording/BatchUploadItem.svelte";
 
 	export let isOpen = false;
 
 	const dispatch = createEventDispatcher();
 
-	interface UploadItem {
-		id: string;
-		file: File;
-		title: string;
-		author: string;
-		type: RecordingType;
-		description: string;
-		duration: number;
-		status: "pending" | "uploading" | "success" | "error";
-		error?: string;
-		progress: number;
-	}
-
 	let fileInput: HTMLInputElement;
 	let uploadItems: UploadItem[] = [];
 	let isUploading = false;
 	let dragOver = false;
-
-	// Recording types with Swedish labels
-	const recordingTypes: { value: RecordingType; label: string }[] = [
-		{ value: "unknown", label: "Okänd" },
-		{ value: "jingle", label: "Jingel" },
-		{ value: "poetry", label: "Poesi" },
-		{ value: "music", label: "Musik" },
-		{ value: "news", label: "Nyheter" },
-		{ value: "commentary", label: "Kommentar" },
-		{ value: "talk", label: "Tal" },
-		{ value: "comedy", label: "Komedi" },
-		{ value: "talkshow", label: "Pratshow" },
-		{ value: "interview", label: "Intervju" },
-		{ value: "other", label: "Övrigt" },
-	];
 
 	$: if (!isOpen) {
 		resetForm();
@@ -91,55 +67,32 @@
 	}
 
 	async function addFiles(files: File[]) {
-		const audioFiles = files.filter((file) => file.type.startsWith("audio/"));
+		const { valid, invalid } = validateBatchFiles(files);
 
-		if (audioFiles.length === 0) {
-			toast.error("Vänligen välj ljudfiler");
+		if (invalid.length > 0) {
+			const reasons = invalid.map((f) => `${f.file.name}: ${f.reason}`).join("\n");
+			toast.error("Vissa filer kunde inte läggas till", {
+				description: reasons,
+			});
+		}
+
+		if (valid.length === 0) {
 			return;
 		}
 
-		for (const file of audioFiles) {
-			// Extract title from filename (remove extension)
-			const title = file.name.replace(/\.[^/.]+$/, "");
-
-			// Try to get duration
-			const duration = await getAudioDuration(file);
-
-			const uploadItem: UploadItem = {
-				id: crypto.randomUUID(),
-				file,
-				title,
-				author: "",
-				type: "unknown",
-				description: "",
-				duration: duration || 0,
-				status: "pending",
-				progress: 0,
-			};
-
-			uploadItems = [...uploadItems, uploadItem];
-		}
+		const newItems = await createUploadItems(valid);
+		uploadItems = [...uploadItems, ...newItems];
 	}
 
-	async function getAudioDuration(file: File): Promise<number> {
-		return new Promise((resolve) => {
-			const audio = new Audio();
-			audio.addEventListener("loadedmetadata", () => {
-				resolve(Math.round(audio.duration));
-			});
-			audio.addEventListener("error", () => {
-				resolve(0);
-			});
-			audio.src = URL.createObjectURL(file);
-		});
+	function handleItemRemove(event: CustomEvent<{ id: string }>) {
+		uploadItems = uploadItems.filter((item) => item.id !== event.detail.id);
 	}
 
-	function removeItem(id: string) {
-		uploadItems = uploadItems.filter((item) => item.id !== id);
-	}
-
-	function updateItem(id: string, updates: Partial<UploadItem>) {
-		uploadItems = uploadItems.map((item) => (item.id === id ? { ...item, ...updates } : item));
+	function handleItemUpdate(event: CustomEvent<{ id: string; field: string; value: any }>) {
+		const { id, field, value } = event.detail;
+		uploadItems = uploadItems.map((item) =>
+			item.id === id ? { ...item, [field]: value } : item
+		);
 	}
 
 	async function startUpload() {
@@ -149,84 +102,49 @@
 		}
 
 		isUploading = true;
-		const {
-			data: { user },
-		} = await supabase.auth.getUser();
 
-		let successCount = 0;
-		let errorCount = 0;
-
-		for (const item of uploadItems) {
-			if (item.status === "success") continue;
-
-			try {
-				updateItem(item.id, { status: "uploading", progress: 10 });
-
-				// Upload audio file with automatic conversion if needed
-				const uploadResult = await uploadAudioFile({
-					file: item.file,
-					bucket: "recordings",
-					folder: `batch/${item.id}`,
-					showProgress: false, // We handle our own progress
-					autoConvert: true,
-					maxSizeMB: 50,
-				});
-
-				updateItem(item.id, { progress: 50 });
-
-				// Create database record
-				const uploadedAt = new Date().toISOString();
-				const recordingData = {
-					title: item.title.trim() || "Namnlös inspelning",
-					author: item.author.trim() || null,
-					type: item.type,
-					description: null,
-					duration: uploadResult.duration || item.duration,
-					file_url: uploadResult.url,
-					file_size: uploadResult.file.size,
-					uploaded_filename:
-						uploadResult.wasConverted && uploadResult.originalFile
-							? getFilenameWithDate(new File([new Blob()], uploadResult.originalFile.name))
-							: getFilenameWithDate(uploadResult.file),
-					uploaded_at: uploadedAt,
-					uploaded_by: user?.id || null,
-					edited_at: uploadedAt,
-					edited_by: user?.id || null,
-				};
-
-				const { error: dbError } = await supabase.from("recordings").insert(recordingData);
-
-				if (dbError) throw dbError;
-
-				updateItem(item.id, {
-					status: "success",
-					progress: 100,
-				});
-				successCount++;
-			} catch (error) {
-				console.error("Upload error:", error);
-				updateItem(item.id, {
-					status: "error",
-					error: error instanceof Error ? error.message : "Uppladdning misslyckades",
-					progress: 0,
-				});
-				errorCount++;
+		const result = await processBatchUpload(
+			uploadItems,
+			(itemId, progress) => {
+				// Update progress for item
+				uploadItems = uploadItems.map((item) =>
+					item.id === itemId
+						? { ...item, status: "uploading", progress }
+						: item
+				);
+			},
+			(uploadResult) => {
+				// Update status based on result
+				uploadItems = uploadItems.map((item) =>
+					item.id === uploadResult.id
+						? {
+								...item,
+								status: uploadResult.success ? "success" : "error",
+								error: uploadResult.error,
+								progress: uploadResult.success ? 100 : 0,
+						  }
+						: item
+				);
 			}
-		}
+		);
 
 		isUploading = false;
 
-		if (successCount > 0) {
-			toast.success(`${successCount} inspelning${successCount === 1 ? "" : "ar"} uppladdade`);
+		if (result.successCount > 0) {
+			toast.success(
+				`${result.successCount} inspelning${result.successCount === 1 ? "" : "ar"} uppladdade`
+			);
 			dispatch("updated");
 		}
 
-		if (errorCount > 0) {
-			toast.error(`${errorCount} uppladdning${errorCount === 1 ? "" : "ar"} misslyckades`);
+		if (result.errorCount > 0) {
+			toast.error(
+				`${result.errorCount} uppladdning${result.errorCount === 1 ? "" : "ar"} misslyckades`
+			);
 		}
 
 		// Remove successful items after a delay
-		if (successCount > 0) {
+		if (result.successCount > 0) {
 			setTimeout(() => {
 				uploadItems = uploadItems.filter((item) => item.status !== "success");
 				if (uploadItems.length === 0) {
@@ -236,30 +154,14 @@
 		}
 	}
 
-	function getItemIcon(status: UploadItem["status"]) {
-		switch (status) {
-			case "success":
-				return Check;
-			case "error":
-				return AlertCircle;
-			default:
-				return FileAudio;
-		}
-	}
-
-	function getItemClass(status: UploadItem["status"]) {
-		switch (status) {
-			case "success":
-				return "has-text-success";
-			case "error":
-				return "has-text-danger";
-			case "uploading":
-				return "has-text-info";
-			default:
-				return "";
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === "Escape" && isOpen && !isUploading) {
+			handleClose();
 		}
 	}
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <div class="modal" class:is-active={isOpen}>
 	<div
@@ -278,8 +180,7 @@
 				</span>
 				<span>Ladda upp flera inspelningar</span>
 			</p>
-			<button class="delete" aria-label="close" on:click={handleClose} disabled={isUploading}
-			></button>
+			<button class="delete" aria-label="close" on:click={handleClose} disabled={isUploading}></button>
 		</header>
 		<section class="modal-card-body">
 			<!-- File Drop Zone -->
@@ -313,6 +214,7 @@
 					>
 						Välj filer
 					</button>
+					<p class="help mt-3">Alla ljudformat stöds, max 50MB per fil</p>
 				</div>
 			</div>
 
@@ -321,92 +223,16 @@
 				<div class="upload-items mt-5">
 					<h4 class="title is-6">Filer att ladda upp ({uploadItems.length})</h4>
 
-					{#each uploadItems as item (item.id)}
-						<div class="upload-item box">
-							<div class="level is-mobile">
-								<div class="level-left">
-									<div class="level-item">
-										<span class="icon {getItemClass(item.status)}">
-											<svelte:component this={getItemIcon(item.status)} size={20} />
-										</span>
-									</div>
-									<div class="level-item">
-										<strong>{item.file.name}</strong>
-										<span class="tag is-small ml-2"
-											>{(item.file.size / 1024 / 1024).toFixed(1)} MB</span
-										>
-									</div>
-								</div>
-								<div class="level-right">
-									{#if item.status === "pending" && !isUploading}
-										<button
-											class="delete is-small"
-											aria-label="Remove"
-											on:click={() => removeItem(item.id)}
-										></button>
-									{:else if item.status === "uploading"}
-										<progress class="progress is-small is-info" value={item.progress} max="100">
-											{item.progress}%
-										</progress>
-									{/if}
-								</div>
-							</div>
-
-							{#if item.status === "error"}
-								<p class="help is-danger mt-2">{item.error}</p>
-							{/if}
-
-							{#if item.status === "pending"}
-								<div class="columns is-mobile mt-2">
-									<div class="column">
-										<div class="field">
-											<!-- svelte-ignore a11y-label-has-associated-control -->
-											<label class="label is-small">Titel</label>
-											<div class="control">
-												<input
-													class="input is-small"
-													type="text"
-													bind:value={item.title}
-													placeholder="Titel"
-													disabled={isUploading}
-												/>
-											</div>
-										</div>
-									</div>
-									<div class="column">
-										<div class="field">
-											<!-- svelte-ignore a11y-label-has-associated-control -->
-											<label class="label is-small">Artist</label>
-											<div class="control">
-												<input
-													class="input is-small"
-													type="text"
-													bind:value={item.author}
-													placeholder="Artist"
-													disabled={isUploading}
-												/>
-											</div>
-										</div>
-									</div>
-									<div class="column is-narrow">
-										<div class="field">
-											<!-- svelte-ignore a11y-label-has-associated-control -->
-											<label class="label is-small">Typ</label>
-											<div class="control">
-												<div class="select is-small">
-													<select bind:value={item.type} disabled={isUploading}>
-														{#each recordingTypes as type}
-															<option value={type.value}>{type.label}</option>
-														{/each}
-													</select>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/each}
+					<div class="upload-items-container">
+						{#each uploadItems as item (item.id)}
+							<BatchUploadItem
+								{...item}
+								disabled={isUploading}
+								on:remove={handleItemRemove}
+								on:update={handleItemUpdate}
+							/>
+						{/each}
+					</div>
 				</div>
 			{/if}
 		</section>
@@ -467,21 +293,8 @@
 		pointer-events: none;
 	}
 
-	.upload-item {
-		margin-bottom: 1rem;
-		position: relative;
-	}
-
-	.upload-item:last-child {
-		margin-bottom: 0;
-	}
-
-	.upload-items {
+	.upload-items-container {
 		max-height: 400px;
 		overflow-y: auto;
-	}
-
-	.progress {
-		width: 100px;
 	}
 </style>
