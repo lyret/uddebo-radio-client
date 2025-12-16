@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { X, Radio, Calendar, Info, Trash2, Image } from "lucide-svelte";
+	import { Radio, Calendar, Info, Trash2, Image } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { BroadcastProgram } from "@/api";
 	import { supabase } from "@/api";

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import { push } from "svelte-spa-router";
 	import {
 		Edit2,
@@ -10,11 +10,14 @@
 		Pause,
 		Info,
 		ExternalLink,
+		Plus,
+		Upload,
 	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { Recording } from "@/api";
 	import Layout from "@/components/Layout.svelte";
 	import RecordingEditorModal from "@/modals/RecordingEditorModal.svelte";
+	import RecordingsBatchUploadModal from "@/modals/RecordingsBatchUploadModal.svelte";
 	import { supabase } from "@/api";
 	import { getSwedishRecordingType } from "@/api/lang";
 	import { recordingsUIState } from "@/api/ui";
@@ -25,6 +28,7 @@
 	let audioElement: HTMLAudioElement;
 	let editingRecording: Recording | null = null;
 	let isEditorOpen = false;
+	let isBatchUploadOpen = false;
 	// All possible recording types with Swedish labels
 	const recordingTypes = [
 		{ value: "unknown", label: "Okänd" },
@@ -113,6 +117,10 @@
 			audioElement.pause();
 			playingId = null;
 		} else {
+			// If modal is open for this recording, let the modal handle playback
+			if (isEditorOpen && editingRecording?.id === recording.id) {
+				return;
+			}
 			playingId = recording.id;
 			audioElement.src = recording.file_url;
 			audioElement.play();
@@ -123,12 +131,58 @@
 		playingId = null;
 	}
 
+	// Update playing state when audio element state changes
+	let audioListenerCleanup: (() => void) | null = null;
+
+	$: if (audioElement) {
+		// Clean up previous listeners
+		if (audioListenerCleanup) {
+			audioListenerCleanup();
+		}
+
+		const handlePlay = () => {
+			if (audioElement.src && !isEditorOpen) {
+				const playingRecording = recordings.find((r) => r.file_url === audioElement.src);
+				if (playingRecording) {
+					playingId = playingRecording.id;
+				}
+			}
+		};
+		const handlePause = () => {
+			// Always reset playingId when audio is paused
+			playingId = null;
+		};
+		audioElement.addEventListener("play", handlePlay);
+		audioElement.addEventListener("pause", handlePause);
+
+		// Store cleanup function
+		audioListenerCleanup = () => {
+			audioElement.removeEventListener("play", handlePlay);
+			audioElement.removeEventListener("pause", handlePause);
+		};
+	}
+
+	// Clean up audio listeners on component destroy
+	onDestroy(() => {
+		if (audioListenerCleanup) {
+			audioListenerCleanup();
+			audioListenerCleanup = null;
+		}
+	});
+
 	function openEditor(recording: Recording) {
 		editingRecording = recording;
 		isEditorOpen = true;
+		// Don't stop audio if it's playing the same recording
+		if (playingId !== recording.id && playingId !== null) {
+			audioElement.pause();
+			playingId = null;
+		}
 	}
 
 	function handleEditorClose() {
+		// Reset playing state since modal always stops audio
+		playingId = null;
 		editingRecording = null;
 		isEditorOpen = false;
 	}
@@ -170,6 +224,12 @@
 				</h2>
 			</div>
 			<div class="level-right">
+				<button class="button mr-3" on:click={() => (isBatchUploadOpen = true)}>
+					<span class="icon">
+						<Upload size={16} />
+					</span>
+					<span>Ladda upp flera</span>
+				</button>
 				<div class="field has-addons">
 					<div class="control">
 						<span class="button is-static">Status:</span>
@@ -392,9 +452,18 @@
 	<RecordingEditorModal
 		recording={editingRecording}
 		bind:isOpen={isEditorOpen}
+		{audioElement}
+		isPlaying={playingId === editingRecording?.id}
 		on:close={handleEditorClose}
 		on:updated={handleEditorUpdate}
 		on:deleted={handleEditorUpdate}
+	/>
+
+	<!-- Batch Upload Modal -->
+	<RecordingsBatchUploadModal
+		bind:isOpen={isBatchUploadOpen}
+		on:close={() => (isBatchUploadOpen = false)}
+		on:updated={loadRecordings}
 	/>
 </Layout>
 

@@ -26,6 +26,7 @@
 		"svelte-persisted-store": "^0.12.0",
 		"svelte-sonner": "^0.3.0",
 		"svelte-spa-router": "^4.0.0",
+		"wavesurfer.js": "^7.12.1",
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {

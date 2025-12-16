@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
+	import { createEventDispatcher, onDestroy, onMount } from "svelte";
 	import {
 		Save,
 		Upload,
@@ -10,14 +10,26 @@
 		Trash2,
 		Image,
 		FileText,
+		Scissors,
 	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { Recording, RecordingType, RecordingUpdate } from "@/api";
-	import { supabase } from "@/api";
+	import {
+		supabase,
+		uploadAudioFile,
+		uploadCoverImage,
+		deleteStorageFile,
+		needsAudioConversion,
+		getAudioFormatDescription,
+	} from "@/api";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
+	import WaveSurfer from "wavesurfer.js";
+	import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js";
 
 	export let recording: Recording | null = null;
 	export let isOpen = false;
+	export let audioElement: HTMLAudioElement | null = null;
+	export let isPlaying = false;
 
 	const dispatch = createEventDispatcher();
 
@@ -48,10 +60,41 @@
 	// All possible recording types with Swedish labels
 	const recordingTypes = getAllSwedishRecordingTypes();
 
+	// WaveSurfer instance
+	let wavesurfer: WaveSurfer | null = null;
+	let waveformContainer: HTMLDivElement;
+	let activeRegion: any = null;
+	let trimStart = 0;
+	let trimEnd = 0;
+	let showTrimControls = false;
+	let localIsPlaying = false;
+
 	// Load form data when modal opens
 	$: if (isOpen && recording) {
 		loadFormData();
 	}
+
+	// Initialize waveform when container is ready
+	$: if (waveformContainer && recording?.file_url && isOpen) {
+		initializeWaveform();
+	}
+
+	// Sync with external audio element
+	$: if (wavesurfer && audioElement && isOpen) {
+		syncWithAudioElement();
+	}
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (wavesurfer) {
+			wavesurfer.destroy();
+			wavesurfer = null;
+		}
+		if (audioListenerCleanup) {
+			audioListenerCleanup();
+			audioListenerCleanup = null;
+		}
+	});
 
 	function loadFormData() {
 		if (!recording) return;
@@ -63,6 +106,180 @@
 		link_out_url = recording.link_out_url || "";
 		cover_url = recording.cover_url || "";
 		captions_url = recording.captions_url || "";
+
+		// Initialize waveform after form data is loaded
+		if (recording.file_url) {
+			initializeWaveform();
+		}
+	}
+
+	// Set up audio element listeners when we have both audio element and recording
+	function setupAudioListeners() {
+		if (!audioElement || !wavesurfer || !recording || !isOpen) return;
+
+		const handleTimeUpdate = () => {
+			if (
+				audioElement &&
+				wavesurfer &&
+				audioElement.src === recording.file_url &&
+				!wavesurfer.isPlaying()
+			) {
+				const progress = audioElement.currentTime / audioElement.duration;
+				if (!isNaN(progress)) {
+					wavesurfer.seekTo(progress);
+				}
+			}
+		};
+
+		const handlePlay = () => {
+			if (
+				audioElement &&
+				wavesurfer &&
+				audioElement.src === recording.file_url &&
+				!wavesurfer.isPlaying()
+			) {
+				const seekTo = audioElement.currentTime / audioElement.duration;
+				if (!isNaN(seekTo)) {
+					wavesurfer.seekTo(seekTo);
+				}
+				wavesurfer.play();
+			}
+		};
+
+		const handlePause = () => {
+			if (
+				audioElement &&
+				wavesurfer &&
+				audioElement.src === recording.file_url &&
+				wavesurfer.isPlaying()
+			) {
+				wavesurfer.pause();
+			}
+		};
+
+		audioElement.addEventListener("timeupdate", handleTimeUpdate);
+		audioElement.addEventListener("play", handlePlay);
+		audioElement.addEventListener("pause", handlePause);
+
+		// Return cleanup function
+		return () => {
+			if (audioElement) {
+				audioElement.removeEventListener("timeupdate", handleTimeUpdate);
+				audioElement.removeEventListener("play", handlePlay);
+				audioElement.removeEventListener("pause", handlePause);
+			}
+		};
+	}
+
+	// Reactive statement to setup/cleanup audio listeners
+	let audioListenerCleanup: (() => void) | null = null;
+	$: {
+		// Clean up previous listeners
+		if (audioListenerCleanup) {
+			audioListenerCleanup();
+			audioListenerCleanup = null;
+		}
+		// Set up new listeners if conditions are met
+		if (audioElement && wavesurfer && recording && isOpen) {
+			audioListenerCleanup = setupAudioListeners();
+		}
+	}
+
+	async function initializeWaveform() {
+		if (!recording?.file_url || !waveformContainer) return;
+
+		// Destroy existing instance if any
+		if (wavesurfer) {
+			wavesurfer.destroy();
+			wavesurfer = null;
+		}
+
+		// Create new WaveSurfer instance
+		wavesurfer = WaveSurfer.create({
+			container: waveformContainer,
+			waveColor: "#4F4A85",
+			progressColor: "#383351",
+			url: recording.file_url,
+			height: 100,
+			normalize: true,
+			backend: "WebAudio",
+		});
+
+		// Initialize regions plugin for trimming
+		const regions = wavesurfer.registerPlugin(RegionsPlugin.create());
+
+		// When waveform is ready, set up the initial region if needed
+		wavesurfer.on("ready", () => {
+			const duration = wavesurfer?.getDuration() || 0;
+			trimEnd = duration;
+
+			// Create initial region for the full audio
+			activeRegion = regions.addRegion({
+				start: 0,
+				end: duration,
+				color: "rgba(79, 74, 133, 0.3)",
+				drag: true,
+				resize: true,
+			});
+
+			// Update trim values when region is modified
+			activeRegion.on("update", () => {
+				trimStart = activeRegion.start;
+				trimEnd = activeRegion.end;
+			});
+
+			// Sync with audio element if playing
+			if (audioElement && isPlaying && audioElement.src === recording.file_url) {
+				syncWithAudioElement();
+			}
+		});
+
+		// Update play state and sync with audio element
+		wavesurfer.on("play", () => {
+			localIsPlaying = true;
+			// If audio element exists and is not playing the same file, pause it
+			if (audioElement && audioElement.src !== recording.file_url) {
+				audioElement.pause();
+			}
+		});
+
+		wavesurfer.on("pause", () => {
+			localIsPlaying = false;
+		});
+
+		wavesurfer.on("finish", () => {
+			localIsPlaying = false;
+		});
+
+		// Sync wavesurfer position with audio element when seeking
+		wavesurfer.on("seeking", (progress) => {
+			if (audioElement && audioElement.src === recording.file_url && localIsPlaying) {
+				audioElement.currentTime = progress * wavesurfer.getDuration();
+			}
+		});
+	}
+
+	function syncWithAudioElement() {
+		if (!wavesurfer || !audioElement || !recording) return;
+
+		// If audio element is playing this recording, sync wavesurfer
+		if (audioElement.src === recording.file_url) {
+			if (isPlaying && !localIsPlaying) {
+				// Seek to current position and start playing
+				const currentTime = audioElement.currentTime;
+				const duration = audioElement.duration;
+				if (!isNaN(currentTime) && !isNaN(duration) && duration > 0) {
+					wavesurfer.seekTo(currentTime / duration);
+					// Wait for seek to complete before playing
+					setTimeout(() => {
+						wavesurfer.play();
+					}, 100);
+				}
+			} else if (!isPlaying && localIsPlaying) {
+				// Pause wavesurfer
+				wavesurfer.pause();
+			}
+		}
 	}
 
 	function resetForm() {
@@ -79,9 +296,28 @@
 		if (audioFileInput) audioFileInput.value = "";
 		if (coverFileInput) coverFileInput.value = "";
 		if (captionsFileInput) captionsFileInput.value = "";
+		trimStart = 0;
+		trimEnd = 0;
+		showTrimControls = false;
+		activeRegion = null;
+		localIsPlaying = false;
 	}
 
 	function closeModal() {
+		// Always stop audio when closing modal
+		if (audioElement && !audioElement.paused) {
+			audioElement.pause();
+		}
+
+		// Stop wavesurfer playback if it's playing
+		if (wavesurfer && localIsPlaying) {
+			wavesurfer.pause();
+		}
+
+		if (wavesurfer) {
+			wavesurfer.destroy();
+			wavesurfer = null;
+		}
 		resetForm();
 		isOpen = false;
 		dispatch("close");
@@ -133,6 +369,16 @@
 				selectedAudioFile = null;
 				return;
 			}
+
+			// Check if conversion is needed and notify user
+			if (needsAudioConversion(selectedAudioFile)) {
+				toast.info(
+					`${getAudioFormatDescription(selectedAudioFile)}-fil kommer att konverteras till MP3`,
+					{
+						description: "Detta säkerställer kompatibilitet med alla enheter",
+					}
+				);
+			}
 		}
 	}
 
@@ -168,42 +414,30 @@
 		}
 	}
 
-	async function uploadAudioFile() {
+	async function uploadAudioFileHandler() {
 		if (!selectedAudioFile || !recording) return;
 
 		try {
 			uploading = true;
 
 			// Delete old file first (if exists)
-			const oldFileName = recording.file_url.split("/").pop();
-			if (oldFileName) {
-				await supabase.storage.from("recordings").remove([oldFileName]);
+			if (recording.file_url) {
+				try {
+					await deleteStorageFile(recording.file_url, "recordings");
+				} catch (error) {
+					console.warn("Could not delete old file:", error);
+				}
 			}
 
-			// Upload new file with timestamp for uniqueness
-			const fileExt = selectedAudioFile.name.split(".").pop();
-			const timestamp = Date.now();
-			const fileName = `${recording.id}_${timestamp}.${fileExt}`;
-
-			const { error: uploadError } = await supabase.storage
-				.from("recordings")
-				.upload(fileName, selectedAudioFile);
-
-			if (uploadError) throw uploadError;
-
-			// Get public URL
-			const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(fileName);
-
-			// Get duration of new file
-			const audio = new Audio();
-			audio.src = URL.createObjectURL(selectedAudioFile);
-
-			await new Promise((resolve) => {
-				audio.addEventListener("loadedmetadata", resolve);
-				audio.load();
+			// Upload new file with automatic conversion if needed
+			const uploadResult = await uploadAudioFile({
+				file: selectedAudioFile,
+				bucket: "recordings",
+				folder: `replacements/${recording.id}`,
+				showProgress: true,
+				autoConvert: true,
+				maxSizeMB: 50,
 			});
-
-			const duration = Math.floor(audio.duration);
 
 			// Update database with new file info
 			const {
@@ -213,9 +447,9 @@
 			const { error: dbError } = await supabase
 				.from("recordings")
 				.update({
-					file_url: urlData.publicUrl,
-					file_size: selectedAudioFile.size,
-					duration: duration,
+					file_url: uploadResult.url,
+					file_size: uploadResult.file.size,
+					duration: uploadResult.duration,
 					edited_at: new Date().toISOString(),
 					edited_by: user?.id || null,
 				})
@@ -223,7 +457,12 @@
 
 			if (dbError) throw dbError;
 
-			toast.success("Ljudfilen har ersatts");
+			if (uploadResult.wasConverted) {
+				toast.success("Ljudfilen har ersatts och konverterats till MP3");
+			} else {
+				toast.success("Ljudfilen har ersatts");
+			}
+
 			selectedAudioFile = null;
 			audioFileInput.value = "";
 			dispatch("updated");
@@ -235,38 +474,29 @@
 		}
 	}
 
-	async function uploadCoverImage() {
+	async function uploadCoverImageHandler() {
 		if (!selectedCoverFile || !recording) return;
 
 		try {
 			uploadingCover = true;
 
-			// Upload cover image with timestamp for uniqueness
-			const fileExt = selectedCoverFile.name.split(".").pop();
-			const timestamp = Date.now();
-			const fileName = `${recording.id}_${timestamp}.${fileExt}`;
-
-			// Delete old cover if exists
-			if (recording.cover_url && recording.cover_url.includes("supabase")) {
-				const oldFileName = recording.cover_url.split("/").pop();
-				if (oldFileName) {
-					await supabase.storage.from("cover_images").remove([oldFileName]);
+			// Delete old file if exists
+			if (recording.cover_url) {
+				try {
+					await deleteStorageFile(recording.cover_url, "recordings");
+				} catch (error) {
+					console.warn("Could not delete old cover:", error);
 				}
 			}
 
-			const { error: uploadError } = await supabase.storage
-				.from("cover_images")
-				.upload(fileName, selectedCoverFile);
+			// Upload new cover image
+			const coverUrl = await uploadCoverImage(
+				selectedCoverFile,
+				"recordings",
+				`covers/${recording.id}`
+			);
 
-			if (uploadError) throw uploadError;
-
-			// Get public URL
-			const { data: urlData } = supabase.storage.from("cover_images").getPublicUrl(fileName);
-
-			// Update the form field
-			cover_url = urlData.publicUrl;
-
-			// Save the cover URL to database
+			// Update database with new cover URL
 			const {
 				data: { user },
 			} = await supabase.auth.getUser();
@@ -274,7 +504,7 @@
 			const { error: dbError } = await supabase
 				.from("recordings")
 				.update({
-					cover_url: urlData.publicUrl,
+					cover_url: coverUrl,
 					edited_at: new Date().toISOString(),
 					edited_by: user?.id || null,
 				})
@@ -282,10 +512,8 @@
 
 			if (dbError) throw dbError;
 
-			// Update local recording object
-			recording.cover_url = urlData.publicUrl;
-
-			toast.success("Omslagsbilden har laddats upp och sparats");
+			cover_url = coverUrl;
+			toast.success("Omslagsbilden har laddats upp");
 			selectedCoverFile = null;
 			coverFileInput.value = "";
 			dispatch("updated");
@@ -369,12 +597,11 @@
 				data: { user },
 			} = await supabase.auth.getUser();
 
-			// Delete from storage if it's a Supabase URL
-			if (recording.cover_url.includes("supabase")) {
-				const fileName = recording.cover_url.split("/").pop();
-				if (fileName) {
-					await supabase.storage.from("cover_images").remove([fileName]);
-				}
+			// Delete from storage
+			try {
+				await deleteStorageFile(recording.cover_url, "recordings");
+			} catch (error) {
+				console.warn("Could not delete cover from storage:", error);
 			}
 
 			// Clear from database
@@ -409,12 +636,11 @@
 				data: { user },
 			} = await supabase.auth.getUser();
 
-			// Delete from storage if it's a Supabase URL
-			if (recording.captions_url.includes("supabase")) {
-				const fileName = recording.captions_url.split("/").pop();
-				if (fileName) {
-					await supabase.storage.from("captions").remove([fileName]);
-				}
+			// Delete from storage
+			try {
+				await deleteStorageFile(recording.captions_url, "recordings");
+			} catch (error) {
+				console.warn("Could not delete captions from storage:", error);
 			}
 
 			// Clear from database
@@ -513,6 +739,138 @@
 		}
 	}
 
+	async function applyTrim() {
+		if (!wavesurfer || !activeRegion) return;
+
+		try {
+			showTrimControls = false;
+			uploading = true;
+			toast.info("Trimmar ljudfil...");
+
+			// Get the audio buffer
+			const audioBuffer = wavesurfer.getDecodedData();
+			if (!audioBuffer) {
+				throw new Error("Kunde inte hämta ljuddata");
+			}
+
+			const sampleRate = audioBuffer.sampleRate;
+			const startSample = Math.floor(trimStart * sampleRate);
+			const endSample = Math.floor(trimEnd * sampleRate);
+			const trimmedLength = endSample - startSample;
+
+			// Create a new buffer with the trimmed audio
+			const trimmedBuffer = new AudioBuffer({
+				numberOfChannels: audioBuffer.numberOfChannels,
+				length: trimmedLength,
+				sampleRate: sampleRate,
+			});
+
+			// Copy the trimmed portion
+			for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+				const originalData = audioBuffer.getChannelData(channel);
+				const trimmedData = trimmedBuffer.getChannelData(channel);
+				for (let i = 0; i < trimmedLength; i++) {
+					trimmedData[i] = originalData[startSample + i];
+				}
+			}
+
+			// Convert the trimmed buffer to a blob
+			const blob = await audioBufferToBlob(trimmedBuffer);
+
+			// Create a file from the blob
+			const fileName = `trimmed_${Date.now()}.mp3`;
+			selectedAudioFile = new File([blob], fileName, { type: "audio/mp3" });
+
+			// Upload the trimmed file
+			await uploadAudioFileHandler();
+
+			toast.success("Ljudfil trimmad och uppladdad!");
+		} catch (error) {
+			console.error("Error trimming audio:", error);
+			toast.error("Kunde inte trimma ljudfil");
+		} finally {
+			uploading = false;
+		}
+	}
+
+	// Helper function to convert AudioBuffer to Blob
+	async function audioBufferToBlob(buffer: AudioBuffer): Promise<Blob> {
+		const offlineContext = new OfflineAudioContext(
+			buffer.numberOfChannels,
+			buffer.length,
+			buffer.sampleRate
+		);
+
+		const source = offlineContext.createBufferSource();
+		source.buffer = buffer;
+		source.connect(offlineContext.destination);
+		source.start();
+
+		const renderedBuffer = await offlineContext.startRendering();
+
+		// Convert to WAV format
+		const length = renderedBuffer.length * renderedBuffer.numberOfChannels * 2 + 44;
+		const arrayBuffer = new ArrayBuffer(length);
+		const view = new DataView(arrayBuffer);
+		const channels = [];
+		let offset = 0;
+		let pos = 0;
+
+		// Write WAV header
+		const setUint16 = (data: number) => {
+			view.setUint16(pos, data, true);
+			pos += 2;
+		};
+		const setUint32 = (data: number) => {
+			view.setUint32(pos, data, true);
+			pos += 4;
+		};
+
+		// RIFF identifier
+		setUint32(0x46464952);
+		// file length
+		setUint32(length - 8);
+		// RIFF type
+		setUint32(0x45564157);
+		// format chunk identifier
+		setUint32(0x20746d66);
+		// format chunk length
+		setUint32(16);
+		// sample format (raw)
+		setUint16(1);
+		// channel count
+		setUint16(renderedBuffer.numberOfChannels);
+		// sample rate
+		setUint32(renderedBuffer.sampleRate);
+		// byte rate (sample rate * block align)
+		setUint32(renderedBuffer.sampleRate * 2 * renderedBuffer.numberOfChannels);
+		// block align (channel count * bytes per sample)
+		setUint16(renderedBuffer.numberOfChannels * 2);
+		// bits per sample
+		setUint16(16);
+		// data chunk identifier
+		setUint32(0x61746164);
+		// data chunk length
+		setUint32(length - pos - 4);
+
+		// write interleaved data
+		for (let i = 0; i < renderedBuffer.numberOfChannels; i++) {
+			channels.push(renderedBuffer.getChannelData(i));
+		}
+
+		while (pos < length) {
+			for (let i = 0; i < renderedBuffer.numberOfChannels; i++) {
+				let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+				sample = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+				view.setInt16(pos, sample, true);
+				pos += 2;
+			}
+			offset++;
+		}
+
+		return new Blob([arrayBuffer], { type: "audio/wav" });
+	}
+
 	async function handleDelete() {
 		if (!recording) return;
 
@@ -543,7 +901,8 @@
 	function formatDuration(seconds: number) {
 		const minutes = Math.floor(seconds / 60);
 		const remainingSeconds = seconds % 60;
-		return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+		const formattedSeconds = remainingSeconds.toFixed(2).padStart(5, "0");
+		return `${minutes}:${formattedSeconds}`;
 	}
 
 	function formatDateTime(date: string | null) {
@@ -584,6 +943,135 @@
 
 			<section class="modal-card-body">
 				{#if recording}
+					<!-- Audio Waveform Section -->
+					{#if recording.file_url}
+						<div class="box mb-4">
+							<h4 class="title is-6 mb-3">Ljudvågform</h4>
+							<div bind:this={waveformContainer} class="waveform-container mb-3"></div>
+
+							{#if wavesurfer}
+								<div class="field">
+									<div class="buttons">
+										<button
+											type="button"
+											class="button is-small"
+											on:click={() => {
+												if (wavesurfer && recording) {
+													if (localIsPlaying) {
+														// Pause both wavesurfer and audio element
+														wavesurfer.pause();
+														if (audioElement && audioElement.src === recording.file_url) {
+															audioElement.pause();
+														}
+													} else {
+														// Play wavesurfer
+														wavesurfer.play();
+														// Ensure audio element is synced
+														if (audioElement) {
+															if (audioElement.src !== recording.file_url) {
+																audioElement.src = recording.file_url;
+															}
+															audioElement.currentTime = wavesurfer.getCurrentTime();
+															audioElement.play();
+														}
+													}
+												}
+											}}
+										>
+											{#if localIsPlaying}
+												<span class="icon">
+													<svg
+														width="16"
+														height="16"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<rect x="6" y="4" width="4" height="16"></rect>
+														<rect x="14" y="4" width="4" height="16"></rect>
+													</svg>
+												</span>
+												<span>Pausa</span>
+											{:else}
+												<span class="icon">
+													<svg
+														width="16"
+														height="16"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<polygon points="5 3 19 12 5 21 5 3"></polygon>
+													</svg>
+												</span>
+												<span>Spela</span>
+											{/if}
+										</button>
+
+										<button
+											type="button"
+											class="button is-small"
+											on:click={() => {
+												showTrimControls = !showTrimControls;
+											}}
+											class:is-primary={showTrimControls}
+										>
+											<span class="icon">
+												<Scissors size={16} />
+											</span>
+											<span>Trimma ljud</span>
+										</button>
+									</div>
+								</div>
+
+								{#if showTrimControls && activeRegion}
+									<div class="notification is-info is-light mt-3">
+										<p class="mb-2">
+											<strong>Trimintervall:</strong>
+											{formatDuration(Math.round(trimStart * 100) / 100)} - {formatDuration(
+												Math.round(trimEnd * 100) / 100
+											)}
+										</p>
+										<p class="mb-3">
+											Dra i kanterna på den markerade regionen för att justera trimningen.
+										</p>
+										<div class="buttons">
+											<button
+												type="button"
+												class="button is-primary is-small"
+												on:click={applyTrim}
+												disabled={uploading}
+												class:is-loading={uploading}
+											>
+												<span class="icon">
+													<Scissors size={16} />
+												</span>
+												<span>Applicera trimning</span>
+											</button>
+											<button
+												type="button"
+												class="button is-small"
+												on:click={() => {
+													showTrimControls = false;
+													if (activeRegion && wavesurfer) {
+														activeRegion.setOptions({
+															start: 0,
+															end: wavesurfer?.getDuration() || 0,
+														});
+													}
+												}}
+											>
+												Avbryt
+											</button>
+										</div>
+									</div>
+								{/if}
+							{/if}
+						</div>
+					{/if}
+
 					<div class="columns">
 						<!-- Main form column -->
 						<div class="column is-8">
@@ -659,7 +1147,11 @@
 
 								<!-- Cover Image Upload -->
 								<div class="field">
-									<p class="label">Omslagsbild</p>
+									<p class="label">
+										Omslagsbild <span class="has-text-weight-normal has-text-grey"
+											>(JPG, PNG, max 5MB)</span
+										>
+									</p>
 									<div class="file has-name is-fullwidth mb-2">
 										<label class="file-label">
 											<input
@@ -684,7 +1176,7 @@
 										<button
 											class="button is-info is-small"
 											type="button"
-											on:click={uploadCoverImage}
+											on:click={uploadCoverImageHandler}
 											disabled={uploadingCover}
 										>
 											{uploadingCover ? "Laddar upp..." : "Ladda upp omslag"}
@@ -713,7 +1205,11 @@
 
 								<!-- Captions File Upload -->
 								<div class="field">
-									<p class="label">Undertextfil</p>
+									<p class="label">
+										Undertexter <span class="has-text-weight-normal has-text-grey"
+											>(SRT, VTT, TXT)</span
+										>
+									</p>
 									<div class="file has-name is-fullwidth mb-2">
 										<label class="file-label">
 											<input
@@ -768,7 +1264,11 @@
 
 								<!-- Replace Audio File -->
 								<div class="field mt-4">
-									<p class="label">Ersätt ljudfil</p>
+									<p class="label">
+										Ersätt ljudfil <span class="has-text-weight-normal has-text-grey"
+											>(Alla ljudformat stöds)</span
+										>
+									</p>
 									<div class="file has-name is-fullwidth mb-2">
 										<label class="file-label">
 											<input
@@ -785,7 +1285,14 @@
 												<span class="file-label">Välj ljudfil...</span>
 											</span>
 											<span class="file-name">
-												{selectedAudioFile ? selectedAudioFile.name : "Ingen fil vald"}
+												{#if selectedAudioFile}
+													{selectedAudioFile.name}
+													{#if needsAudioConversion(selectedAudioFile)}
+														<span class="tag is-info is-small ml-2">Konverteras till MP3</span>
+													{/if}
+												{:else}
+													Ingen fil vald
+												{/if}
 											</span>
 										</label>
 									</div>
@@ -793,14 +1300,23 @@
 										<button
 											class="button is-warning is-small is-rounded"
 											type="button"
-											on:click={uploadAudioFile}
+											on:click={uploadAudioFileHandler}
 											disabled={uploading}
 										>
 											{uploading ? "Laddar upp..." : "Ersätt ljudfil"}
 										</button>
 										<p class="help is-danger mt-1">
-											Varning: Detta kommer att permanent ersätta den nuvarande ljudfilen
+											Varning: Detta ersätter den befintliga ljudfilen
 										</p>
+										{#if needsAudioConversion(selectedAudioFile)}
+											<div class="notification is-info is-light mt-2">
+												<p class="is-size-7">
+													<strong>Automatisk konvertering:</strong> Din {getAudioFormatDescription(
+														selectedAudioFile
+													)}-fil kommer att konverteras till MP3 för bästa kompatibilitet.
+												</p>
+											</div>
+										{/if}
 									{/if}
 								</div>
 							</form>
@@ -832,12 +1348,6 @@
 										</figure>
 									</div>
 								{/if}
-
-								<!-- Audio preview -->
-								<div class="field mt-4">
-									<p class="label is-size-7">Förhandsgranska</p>
-									<audio controls src={recording.file_url} class="is-fullwidth" />
-								</div>
 
 								<!-- Download button -->
 								<div class="field mt-3">
@@ -966,8 +1476,26 @@
 		max-width: 1200px;
 	}
 
-	audio {
+	.waveform-container {
 		width: 100%;
+		min-height: 100px;
+		background-color: #f5f5f5;
+		border-radius: 4px;
+		padding: 0.5rem;
+	}
+
+	.waveform-container :global(wave) {
+		overflow: hidden !important;
+	}
+
+	.waveform-container :global(.wavesurfer-region) {
+		border: 2px solid rgba(79, 74, 133, 0.5);
+		border-radius: 4px;
+	}
+
+	.waveform-container :global(.wavesurfer-handle) {
+		background-color: #4f4a85;
+		width: 4px !important;
 	}
 
 	.file.is-fullwidth {

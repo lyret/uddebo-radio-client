@@ -2,24 +2,27 @@
 	import { Upload, Music, Image, ChevronDown, ChevronUp, Info } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import {
-		supabase,
 		uploadAudioFile,
 		uploadCoverImage,
-		getFilenameWithDate,
+		createRecording,
+		getAudioDuration,
+		needsAudioConversion,
+		validateImageFile,
 		formatFileSize,
+		getFilenameWithDate,
 	} from "@/api";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
+	import { supabase } from "@/api/supabase";
 	import type { RecordingType } from "@/api/supabase/types";
 
 	let uploading = false;
-	let converting = false;
 	let selectedFile: File | null = null;
 	let selectedCoverFile: File | null = null;
 	let title = "";
 	let author = "";
 	let description = "";
 	let type: RecordingType = "unknown";
-	let link_out_url = "";
+	let linkOutUrl = "";
 	let fileInput: HTMLInputElement;
 	let coverFileInput: HTMLInputElement;
 	let showOptionalFields = false;
@@ -31,11 +34,9 @@
 		const file = input.files?.[0];
 		if (file) {
 			selectedFile = file;
-
-			// Auto-fill title from filename if not already set
+			// Auto-fill title from filename if empty
 			if (!title) {
-				const filename = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-				title = filename;
+				title = file.name.replace(/\.[^/.]+$/, "");
 			}
 		}
 	}
@@ -44,38 +45,25 @@
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (file) {
-			// Check if it's an image file
-			if (!file.type.startsWith("image/")) {
-				toast.error("Ogiltig filtyp", {
-					description: "Vänligen välj en bildfil (jpg, png, etc.)",
+			const validation = validateImageFile(file);
+			if (!validation.valid) {
+				toast.error("Ogiltig fil", {
+					description: validation.error,
 				});
 				return;
 			}
-
-			// Check file size (limit to 5MB for images)
-			if (file.size > 5 * 1024 * 1024) {
-				toast.error("Bilden är för stor", {
-					description: "Vänligen välj en bild mindre än 5MB",
-				});
-				return;
-			}
-
 			selectedCoverFile = file;
 		}
 	}
 
 	function removeFile() {
 		selectedFile = null;
-		if (fileInput) {
-			fileInput.value = "";
-		}
+		if (fileInput) fileInput.value = "";
 	}
 
 	function removeCoverFile() {
 		selectedCoverFile = null;
-		if (coverFileInput) {
-			coverFileInput.value = "";
-		}
+		if (coverFileInput) coverFileInput.value = "";
 	}
 
 	async function handleUpload() {
@@ -89,13 +77,11 @@
 		uploading = true;
 
 		try {
-			// Check if user is authenticated (optional)
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
+			// Get current user
+			const { data: { user } } = await supabase.auth.getUser();
 
-			// Upload audio file with automatic conversion if needed
-			const audioUploadResult = await uploadAudioFile({
+			// Upload audio file
+			const audioResult = await uploadAudioFile({
 				file: selectedFile,
 				bucket: "recordings",
 				showProgress: true,
@@ -103,82 +89,75 @@
 				maxSizeMB: 50,
 			});
 
-			// Upload cover image if provided
+			// Upload cover if provided
 			let coverUrl = null;
 			if (selectedCoverFile) {
 				try {
 					coverUrl = await uploadCoverImage(selectedCoverFile, "recordings", "covers");
-				} catch (coverError) {
-					console.error("Cover upload error:", coverError);
-					// Don't fail the entire upload if cover fails
-					toast.warning("Omslagsbilden kunde inte laddas upp", {
-						description: "Inspelningen laddades upp utan omslag",
-					});
+				} catch (error) {
+					console.error("Cover upload error:", error);
+					toast.warning("Omslagsbilden kunde inte laddas upp");
 				}
 			}
 
-			// Save recording metadata to database
-			const uploadedAt = new Date().toISOString();
-			const recordingData = {
+			// Create recording in database
+			const now = new Date().toISOString();
+			const { data, error } = await createRecording({
 				title: title.trim(),
 				author: author.trim() || null,
 				description: description.trim() || null,
-				type: type,
-				link_out_url: link_out_url.trim() || null,
+				type,
+				link_out_url: linkOutUrl.trim() || null,
 				cover_url: coverUrl,
-				file_url: audioUploadResult.url,
-				file_size: audioUploadResult.file.size,
-				duration: audioUploadResult.duration,
+				file_url: audioResult.url,
+				file_size: audioResult.file.size,
+				duration: audioResult.duration || 0,
+				uploaded_filename: audioResult.wasConverted && audioResult.originalFile
+					? getFilenameWithDate(new File([new Blob()], audioResult.originalFile.name))
+					: getFilenameWithDate(audioResult.file),
 				uploaded_by: user?.id || null,
-				uploaded_at: uploadedAt,
-				uploaded_filename:
-					audioUploadResult.wasConverted && audioUploadResult.originalFile
-						? getFilenameWithDate(new File([new Blob()], audioUploadResult.originalFile.name))
-						: getFilenameWithDate(audioUploadResult.file),
-				edited_at: uploadedAt,
+				uploaded_at: now,
+				edited_at: now,
 				edited_by: user?.id || null,
-			};
+				captions_url: null,
+				okey_at: null,
+				okey_by: null,
+			});
 
-			const { error: dbError } = await supabase.from("recordings").insert(recordingData);
+			if (error) throw error;
 
-			if (dbError) throw dbError;
+			// Success
+			const message = audioResult.wasConverted
+				? "Din inspelning konverterades till MP3 och har lagts till"
+				: "Din inspelning har lagts till och kommer snart att granskas";
 
-			// Show success message with conversion info if applicable
-			if (audioUploadResult.wasConverted) {
-				toast.success("Uppladdningen lyckades!", {
-					description:
-						"Din inspelning konverterades till MP3 för bästa kompatibilitet och har lagts till i spellistan",
-				});
-			} else {
-				toast.success("Uppladdningen lyckades!", {
-					description: "Din inspelning har lagts till i spellistan och kommer snart att granskas",
-				});
-			}
+			toast.success("Uppladdningen lyckades!", {
+				description: message,
+			});
 
 			// Reset form
-			selectedFile = null;
-			selectedCoverFile = null;
-			title = "";
-			author = "";
-			description = "";
-			type = "unknown";
-			link_out_url = "";
-			showOptionalFields = false;
-
-			// Reset file inputs
-			if (fileInput) fileInput.value = "";
-			if (coverFileInput) coverFileInput.value = "";
+			resetForm();
 		} catch (error) {
 			console.error("Upload error:", error);
 			toast.error("Uppladdningen misslyckades", {
-				description:
-					error instanceof Error
-						? error.message
-						: "Ett fel uppstod när din inspelning laddades upp. Försök igen senare.",
+				description: error instanceof Error ? error.message : "Ett fel uppstod",
 			});
 		} finally {
 			uploading = false;
 		}
+	}
+
+	function resetForm() {
+		selectedFile = null;
+		selectedCoverFile = null;
+		title = "";
+		author = "";
+		description = "";
+		type = "unknown";
+		linkOutUrl = "";
+		showOptionalFields = false;
+		if (fileInput) fileInput.value = "";
+		if (coverFileInput) coverFileInput.value = "";
 	}
 </script>
 
@@ -191,12 +170,10 @@
 	<div class="notification is-info is-light">
 		<div class="content">
 			<p>
-				<strong>Välkommen!</strong> Här kan du ladda upp din egen musik eller andra ljudinspelningar till
-				Uddebo Radio. Alla uppladdningar granskas innan de spelas i radion.
+				<strong>Välkommen!</strong> Här kan du ladda upp din egen musik eller andra ljudinspelningar.
 			</p>
 			<p class="mt-2">
-				<strong>Automatisk konvertering:</strong> Ljudfiler konverteras automatiskt till MP3-format för
-				bästa kompatibilitet med alla enheter.
+				<strong>Automatisk konvertering:</strong> Ljudfiler konverteras automatiskt till MP3 för bästa kompatibilitet.
 			</p>
 		</div>
 	</div>
@@ -206,9 +183,7 @@
 		<div class="field">
 			<label class="label">
 				Ljudfil *
-				<span class="has-text-weight-normal has-text-grey">
-					(Alla ljudformat stöds, max 50MB)
-				</span>
+				<span class="has-text-weight-normal has-text-grey">(Alla ljudformat, max 50MB)</span>
 			</label>
 			<div class="file is-boxed is-centered">
 				<label class="file-label">
@@ -241,6 +216,9 @@
 							<strong>{selectedFile.name}</strong>
 							<br />
 							<small>{formatFileSize(selectedFile.size)}</small>
+							{#if needsAudioConversion(selectedFile)}
+								<span class="tag is-info is-small ml-2">Konverteras till MP3</span>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -249,19 +227,14 @@
 
 		<!-- Title -->
 		<div class="field">
-			<label class="label" for="title">
-				Titel *
-				<span class="has-text-weight-normal has-text-grey">
-					(Namnet på låten eller inspelningen)
-				</span>
-			</label>
+			<label class="label" for="title">Titel *</label>
 			<div class="control">
 				<input
 					id="title"
 					class="input"
 					type="text"
 					bind:value={title}
-					placeholder="T.ex. 'Min fina låt' eller 'Intervju med..'"
+					placeholder="T.ex. 'Min fina låt'"
 					required
 					disabled={uploading}
 				/>
@@ -270,36 +243,28 @@
 
 		<!-- Type -->
 		<div class="field">
-			<label class="label" for="type"> Typ av inspelning * </label>
+			<label class="label" for="type">Typ av inspelning *</label>
 			<div class="control">
 				<div class="select is-fullwidth">
 					<select id="type" bind:value={type} disabled={uploading}>
 						{#each recordingTypes as recordingType}
-							<option value={recordingType.value}>
-								{recordingType.label}
-							</option>
+							<option value={recordingType.value}>{recordingType.label}</option>
 						{/each}
 					</select>
 				</div>
 			</div>
-			<p class="help">Välj den kategori som bäst beskriver din inspelning</p>
 		</div>
 
-		<!-- Artist/Author -->
+		<!-- Artist -->
 		<div class="field">
-			<label class="label" for="author">
-				Artist/Upphovsperson
-				<span class="has-text-weight-normal has-text-grey">
-					(Vem har skapat eller framför inspelningen?)
-				</span>
-			</label>
+			<label class="label" for="author">Artist/Upphovsperson</label>
 			<div class="control">
 				<input
 					id="author"
 					class="input"
 					type="text"
 					bind:value={author}
-					placeholder="T.ex. artistnamn, bandnamn eller ditt namn"
+					placeholder="Artistnamn, bandnamn eller ditt namn"
 					disabled={uploading}
 				/>
 			</div>
@@ -320,9 +285,7 @@
 						<ChevronDown />
 					{/if}
 				</span>
-				<span>
-					{showOptionalFields ? "Dölj" : "Visa"} fler alternativ
-				</span>
+				<span>{showOptionalFields ? "Dölj" : "Visa"} fler alternativ</span>
 			</button>
 		</div>
 
@@ -330,18 +293,13 @@
 			<div class="box has-background-light">
 				<!-- Description -->
 				<div class="field">
-					<label class="label" for="description">
-						Beskrivning
-						<span class="has-text-weight-normal has-text-grey">
-							(Berätta mer om inspelningen)
-						</span>
-					</label>
+					<label class="label" for="description">Beskrivning</label>
 					<div class="control">
 						<textarea
 							id="description"
 							class="textarea"
 							bind:value={description}
-							placeholder="T.ex. inspelningsår, medverkande, bakgrund eller annan information som kan vara intressant för lyssnarna"
+							placeholder="Berätta mer om inspelningen"
 							rows="3"
 							disabled={uploading}
 						></textarea>
@@ -350,10 +308,7 @@
 
 				<!-- Cover Image -->
 				<div class="field">
-					<label class="label">
-						Omslagsbild
-						<span class="has-text-weight-normal has-text-grey"> (JPG, PNG, max 5MB) </span>
-					</label>
+					<label class="label">Omslagsbild</label>
 					<div class="file has-name is-fullwidth">
 						<label class="file-label">
 							<input
@@ -385,33 +340,27 @@
 							Ta bort bild
 						</button>
 					{/if}
-					<p class="help">En omslagsbild gör din inspelning mer synlig och professionell</p>
 				</div>
 
 				<!-- External Link -->
 				<div class="field">
-					<label class="label" for="link">
-						Extern länk
-						<span class="has-text-weight-normal has-text-grey">
-							(Hemsida, Spotify, YouTube etc.)
-						</span>
-					</label>
+					<label class="label" for="link">Extern länk</label>
 					<div class="control">
 						<input
 							id="link"
 							class="input"
 							type="url"
-							bind:value={link_out_url}
+							bind:value={linkOutUrl}
 							placeholder="https://..."
 							disabled={uploading}
 						/>
 					</div>
-					<p class="help">Länk där lyssnare kan hitta mer av din musik eller information</p>
+					<p class="help">Länk till hemsida, Spotify eller YouTube</p>
 				</div>
 			</div>
 		{/if}
 
-		<!-- Upload Button -->
+		<!-- Submit Button -->
 		<div class="field mt-5">
 			<div class="control">
 				<button
@@ -438,10 +387,9 @@
 				<strong>Viktigt att veta:</strong>
 			</p>
 			<ul class="has-text-left" style="max-width: 500px; margin: 0 auto;">
-				<li>Du måste ha rätt att dela innehållet du laddar upp</li>
-				<li>Alla uppladdningar granskas innan de spelas i radion</li>
-				<li>Innehållet blir offentligt tillgängligt via Uddebo Radio</li>
-				<li>Ljudfiler konverteras automatiskt till MP3 för bästa kompatibilitet</li>
+				<li>Du måste ha rätt att dela innehållet</li>
+				<li>Alla uppladdningar granskas innan de spelas</li>
+				<li>Ljudfiler konverteras automatiskt till MP3</li>
 			</ul>
 		</div>
 	</div>

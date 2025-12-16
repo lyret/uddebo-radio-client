@@ -18,7 +18,7 @@
 		if (error) {
 			toast.error("Fel vid utloggning: " + error.message);
 		} else {
-			toast.success("Utloggning lyckades");
+			toast.success("Hej då!");
 		}
 	}
 
@@ -41,11 +41,11 @@
 					toast.error(error.message || "Ett fel uppstod");
 				}
 			} else {
-				toast.success("Inloggning lyckades!");
+				toast.success("Välkommen in!");
 				email = "";
 				password = "";
 			}
-		} catch (error) {
+		} catch {
 			toast.error("Ett oväntat fel uppstod");
 		} finally {
 			loading = false;
@@ -56,17 +56,19 @@
 <Layout>
 	<div>
 		{#if $authenticationStore}
-			<div class="message is-primary">
+			<div class="message is-success">
 				<div class="message-header">
 					<p>
 						<span class="icon">
 							<UserIcon />
 						</span>
-						<span>Välkommen tillbaka!</span>
+						<span>Du är inloggad</span>
 					</p>
 				</div>
 				<div class="message-body">
-					<p class="mb-2">Du är inloggad och redo att ladda upp inspelningar</p>
+					<p class="mb-2">
+						Du är inloggad och har tillgång till att administrera inspelningar och program
+					</p>
 					<p class="mb-4">
 						<strong>{$authenticationStore.email}</strong>
 						<br />
@@ -75,6 +77,8 @@
 								"sv-SE"
 							)}</small
 						>
+						<br />
+						<small>Är administratör: <b>Ja</b></small>
 					</p>
 					<button class="button is-fullwidth" on:click={signOutHandler}>
 						<span class="icon">
@@ -86,10 +90,10 @@
 			</div>
 		{:else}
 			<div>
-				<h3 class="title is-5">Konto (Valfritt)</h3>
+				<h3 class="title is-5">Logga in (frivilligt)</h3>
 				<p class="subtitle is-6">
-					Skapa ett konto för att hantera dina uppladdningar, eller ladda upp anonymt utan att
-					registrera dig
+					Om du har ett konto för att hantera Uddebo Radio kan du logga in här, du kan också skicka
+					in bidrag anonymt utan att registrera dig
 				</p>
 
 				<form on:submit|preventDefault={() => handleSubmit()}>
