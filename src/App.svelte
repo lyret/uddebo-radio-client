@@ -1,21 +1,25 @@
 <script lang="ts">
-	import Router from "svelte-spa-router";
+	import Router, { location } from "svelte-spa-router";
 	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 	import { Toaster } from "svelte-sonner";
+	import { onMount } from "svelte";
+	import { trackPageVisit } from "./api";
 
 	// Import routes
 	import Player from "./routes/Player.svelte";
 	import Upload from "./routes/Upload.svelte";
-	import Account from "./routes/Account.svelte";
+	import Admin from "./routes/Admin.svelte";
 	import Programs from "./routes/Programs.svelte";
 	import Recordings from "./routes/Recordings.svelte";
 	import NotFound from "./routes/NotFound.svelte";
+	import Announcement from "./routes/Announcement.svelte";
 
 	// Define routes
 	const routes = {
-		"/": Player,
+		"/": Announcement,
+		"/live": Player,
 		"/upload": Upload,
-		"/account": Account,
+		"/admin": Admin,
 		"/programs": Programs,
 		"/recordings": Recordings,
 		"*": NotFound,
@@ -28,6 +32,16 @@
 				staleTime: 60 * 1000,
 			},
 		},
+	});
+
+	// Track page visits on route changes
+	$: if ($location) {
+		trackPageVisit($location);
+	}
+
+	// Track initial page visit on mount
+	onMount(() => {
+		trackPageVisit($location);
 	});
 </script>
 

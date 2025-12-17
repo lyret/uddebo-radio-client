@@ -12,3 +12,4 @@ export * from "./audioNormalization";
 export * from "./fileUpload";
 export * from "./batchUpload";
 export * from "./audioMetadata";
+export * from "./visitorCounter";

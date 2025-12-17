@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { DoorOpen as UserIcon } from "lucide-svelte";
 	import Layout from "@/components/Layout.svelte";
 	import Radio from "@/components/Radio.svelte";
 	import AdminControls from "@/components/AdminControls.svelte";
 	import SnowEffect from "@/components/SnowEffect.svelte";
+	import AccountForm from "@/components/AccountForm.svelte";
 	import { isAdmin, isAuthenticated } from "@/api";
 	import {
 		currentlyPlayingMedium,
@@ -25,6 +27,10 @@
 	let instructions = "Tryck på strömknappen för att börja lyssna";
 	let currentTrackId: string | null = null;
 	let powerOn = false;
+	let showSignInModal = false;
+	let showBackground = false;
+	let showSnowEffect = false;
+	let snowTimeoutSet = false;
 
 	// Footer element reference
 	let footerElement: HTMLElement;
@@ -332,6 +338,21 @@
 		// Store the original document title
 		storeOriginalTitle();
 
+		// Delay background animation by 1 second
+		if (isWinter) {
+			setTimeout(() => {
+				showBackground = true;
+			}, 1000);
+
+			// Delay snow effect by 5 seconds (only set once)
+			if (!$isAuthenticated && !snowTimeoutSet) {
+				snowTimeoutSet = true;
+				setTimeout(() => {
+					showSnowEffect = true;
+				}, 5000);
+			}
+		}
+
 		if (audioElement) {
 			audioElement.addEventListener("ended", handleTrackEnded);
 			audioElement.addEventListener("error", handleAudioError);
@@ -372,16 +393,40 @@
 	});
 </script>
 
-<!-- Winter background wrapper -->
-{#if isWinter}
-	<div class="winter-background"></div>
+<!-- Winter background wrapper with fade in animation -->
+{#if isWinter && showBackground}
+	<div class="winter-background" transition:fade={{ duration: 1000 }}></div>
 {/if}
 
 <Layout />
 
-<!-- Snow effect for winter when not signed in -->
-{#if showSnow}
-	<SnowEffect />
+<!-- Hidden sign-in button for desktop -->
+{#if !$isAuthenticated}
+	<button
+		class="hidden-signin-button"
+		on:click={() => (showSignInModal = true)}
+		aria-label="Sign in"
+		title="Sign in"
+	>
+		<span class="icon is-small">
+			<UserIcon size={24} />
+		</span>
+	</button>
+{/if}
+
+<!-- Snow effect for winter when not signed in with delayed appearance -->
+{#if showSnow && showSnowEffect}
+	<div transition:fade={{ duration: 500 }}>
+		<SnowEffect />
+	</div>
+{/if}
+
+<!-- Sign In Modal -->
+{#if showSignInModal}
+	<AccountForm
+		on:success={() => (showSignInModal = false)}
+		on:close={() => (showSignInModal = false)}
+	/>
 {/if}
 
 <!-- Hidden audio element -->
@@ -421,6 +466,25 @@
 		z-index: -200;
 	}
 
+	/* Hidden sign-in button - only visible on desktop */
+	.hidden-signin-button {
+		position: fixed;
+		top: 10px;
+		right: 10px;
+		z-index: 99999;
+		background: transparent;
+		border: none;
+		color: black;
+		opacity: 0.4;
+		font-size: 20px;
+		padding: 5px 10px;
+		cursor: pointer;
+		transition: opacity 0.3s ease;
+		display: block;
+	}
+	.hidden-signin-button:hover {
+		opacity: 1;
+	}
 	footer {
 		z-index: -100;
 		position: fixed;
@@ -439,8 +503,8 @@
 	}
 
 	@media (orientation: portrait) and (max-width: 700px) {
-		.instructions {
-			order: 1;
+		.hidden-signin-button {
+			display: none;
 		}
 	}
 </style>

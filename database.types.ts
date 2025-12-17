@@ -134,12 +134,60 @@ export type Database = {
         }
         Relationships: []
       }
+      visitor_stats: {
+        Row: {
+          id: string
+          page_path: string
+          referrer: string | null
+          user_agent: string | null
+          visited_at: string | null
+          visitor_id: string
+        }
+        Insert: {
+          id?: string
+          page_path: string
+          referrer?: string | null
+          user_agent?: string | null
+          visited_at?: string | null
+          visitor_id: string
+        }
+        Update: {
+          id?: string
+          page_path?: string
+          referrer?: string | null
+          user_agent?: string | null
+          visited_at?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      visitor_stats_summary: {
+        Row: {
+          page_path: string | null
+          total_visits: number | null
+          unique_visitors: number | null
+          visit_date: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_visitor_stats: {
+        Args: { p_days_back?: number; p_page_path?: string }
+        Returns: Json
+      }
       is_admin_user: { Args: { p_uid: string }; Returns: boolean }
+      record_visit: {
+        Args: {
+          p_page_path: string
+          p_referrer?: string
+          p_user_agent?: string
+          p_visitor_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       recording_type:

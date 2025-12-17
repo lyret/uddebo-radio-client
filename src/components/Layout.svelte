@@ -44,10 +44,15 @@
 							<ul>
 								<li class:is-active={currentPath === "/"}>
 									<a href="/" use:link>
+										<span>Hem</span>
+									</a>
+								</li>
+								<li class:is-active={currentPath === "/live"}>
+									<a href="/live" use:link>
 										<span class="icon is-small">
 											<Radio size={16} />
 										</span>
-										<span>Radiospelare</span>
+										<span>Radion</span>
 									</a>
 								</li>
 								<li class:is-active={currentPath === "/upload"}>
@@ -58,12 +63,12 @@
 										<span>Ladda upp</span>
 									</a>
 								</li>
-								<li class:is-active={currentPath === "/account"}>
-									<a href="/account" use:link>
+								<li class:is-active={currentPath === "/admin"}>
+									<a href="/admin" use:link>
 										<span class="icon is-small">
 											<User size={16} />
 										</span>
-										<span>Konto</span>
+										<span>Användning</span>
 									</a>
 								</li>
 								<li class:is-active={currentPath === "/programs"}>
