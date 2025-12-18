@@ -31,6 +31,8 @@
 	let showBackground = false;
 	let showSnowEffect = false;
 	let snowTimeoutSet = false;
+	let whiteNoiseFadeInterval: ReturnType<typeof setInterval> | null = null;
+	let trackFadeInterval: ReturnType<typeof setInterval> | null = null;
 
 	// Footer element reference
 	let footerElement: HTMLElement;
@@ -253,6 +255,90 @@
 				audioElement.currentTime = $currentlyPlayingMedium.currentPosition;
 			}
 
+			// Clear any existing fade interval
+			if (whiteNoiseFadeInterval) {
+				clearInterval(whiteNoiseFadeInterval);
+				whiteNoiseFadeInterval = null;
+			}
+
+			// Apply white noise fade effect
+			if ($currentlyPlayingMedium.isWhiteNoise) {
+				// Start at full volume
+				audioElement.volume = 1.0;
+
+				// After 1 second, start fading
+				setTimeout(() => {
+					if (audioElement && $currentlyPlayingMedium?.isWhiteNoise) {
+						const fadeStartTime = Date.now();
+						const fadeDuration = 4000; // 4 seconds to fade from 1 second to 5 seconds total
+
+						whiteNoiseFadeInterval = setInterval(() => {
+							const elapsed = Date.now() - fadeStartTime;
+							const progress = Math.min(elapsed / fadeDuration, 1);
+
+							// Exponential fade to make it barely audible (0.05 = 5% volume)
+							const targetVolume = 1.0 - progress * 0.95;
+							audioElement.volume = Math.max(targetVolume, 0.05);
+
+							// Stop the interval once we reach minimum volume
+							if (progress >= 1) {
+								if (whiteNoiseFadeInterval) {
+									clearInterval(whiteNoiseFadeInterval);
+									whiteNoiseFadeInterval = null;
+								}
+							}
+						}, 50); // Update every 50ms for smooth fade
+					}
+				}, 1000); // Start fade after 1 second
+			} else if ($currentlyPlayingMedium.recording.type === "jingle") {
+				// Jingles play at full volume without fades
+				audioElement.volume = 1.0;
+
+				// Clear any existing fade interval
+				if (trackFadeInterval) {
+					clearInterval(trackFadeInterval);
+					trackFadeInterval = null;
+				}
+			} else {
+				// Regular tracks - apply fade in/out effects
+				audioElement.volume = 0;
+
+				// Clear any existing fade interval
+				if (trackFadeInterval) {
+					clearInterval(trackFadeInterval);
+					trackFadeInterval = null;
+				}
+
+				// Setup fade in/out interval
+				trackFadeInterval = setInterval(() => {
+					if (!audioElement || !$currentlyPlayingMedium || $currentlyPlayingMedium.isWhiteNoise) {
+						if (trackFadeInterval) {
+							clearInterval(trackFadeInterval);
+							trackFadeInterval = null;
+						}
+						return;
+					}
+
+					const currentTime = audioElement.currentTime;
+					const duration = audioElement.duration || $currentlyPlayingMedium.recording.duration;
+					const timeRemaining = duration - currentTime;
+
+					// Fade in during first second
+					if (currentTime < 1) {
+						const fadeInProgress = currentTime;
+						audioElement.volume = Math.min(fadeInProgress, 1);
+					}
+					// Fade out during last second
+					else if (timeRemaining < 1) {
+						audioElement.volume = Math.max(timeRemaining, 0);
+					}
+					// Full volume in the middle
+					else {
+						audioElement.volume = 1.0;
+					}
+				}, 50); // Update every 50ms for smooth fade
+			}
+
 			// Start playing
 			audioElement.play().catch((err) => {
 				console.error("Failed to play audio:", err);
@@ -287,6 +373,93 @@
 					audioElement.currentTime = $currentlyPlayingMedium.currentPosition;
 				}
 
+				// Clear any existing fade interval
+				if (whiteNoiseFadeInterval) {
+					clearInterval(whiteNoiseFadeInterval);
+					whiteNoiseFadeInterval = null;
+				}
+
+				// Apply white noise fade effect
+				if ($currentlyPlayingMedium.isWhiteNoise) {
+					// Start at full volume
+					audioElement.volume = 1.0;
+
+					// After 1 second, start fading
+					setTimeout(() => {
+						if (audioElement && $currentlyPlayingMedium?.isWhiteNoise) {
+							const fadeStartTime = Date.now();
+							const fadeDuration = 4000; // 4 seconds to fade from 1 second to 5 seconds total
+
+							whiteNoiseFadeInterval = setInterval(() => {
+								const elapsed = Date.now() - fadeStartTime;
+								const progress = Math.min(elapsed / fadeDuration, 1);
+
+								// Exponential fade to make it barely audible (0.05 = 5% volume)
+								const targetVolume = 1.0 - progress * 0.95;
+								audioElement.volume = Math.max(targetVolume, 0.05);
+
+								// Stop the interval once we reach minimum volume
+								if (progress >= 1) {
+									if (whiteNoiseFadeInterval) {
+										clearInterval(whiteNoiseFadeInterval);
+										whiteNoiseFadeInterval = null;
+									}
+								}
+							}, 50); // Update every 50ms for smooth fade
+						}
+					}, 1000); // Start fade after 1 second
+				} else if (
+					$currentlyPlayingMedium.isWhiteNoise === false &&
+					$currentlyPlayingMedium.recording.type === "jingle"
+				) {
+					// Jingles play at full volume without fades
+					audioElement.volume = 1.0;
+
+					// Clear any existing fade interval
+					if (trackFadeInterval) {
+						clearInterval(trackFadeInterval);
+						trackFadeInterval = null;
+					}
+				} else {
+					// Regular tracks - apply fade in/out effects
+					audioElement.volume = 0;
+
+					// Clear any existing fade interval
+					if (trackFadeInterval) {
+						clearInterval(trackFadeInterval);
+						trackFadeInterval = null;
+					}
+
+					// Setup fade in/out interval
+					trackFadeInterval = setInterval(() => {
+						if (!audioElement || !$currentlyPlayingMedium || $currentlyPlayingMedium.isWhiteNoise) {
+							if (trackFadeInterval) {
+								clearInterval(trackFadeInterval);
+								trackFadeInterval = null;
+							}
+							return;
+						}
+
+						const currentTime = audioElement.currentTime;
+						const duration = audioElement.duration || $currentlyPlayingMedium.recording.duration;
+						const timeRemaining = duration - currentTime;
+
+						// Fade in during first second
+						if (currentTime < 1) {
+							const fadeInProgress = currentTime;
+							audioElement.volume = Math.min(fadeInProgress, 1);
+						}
+						// Fade out during last second
+						else if (timeRemaining < 1) {
+							audioElement.volume = Math.max(timeRemaining, 0);
+						}
+						// Full volume in the middle
+						else {
+							audioElement.volume = 1.0;
+						}
+					}, 50); // Update every 50ms for smooth fade
+				}
+
 				// Start playing
 				audioElement.play().catch((err) => {
 					console.error("Failed to play audio:", err);
@@ -302,8 +475,22 @@
 		} else {
 			instructions = "";
 			currentTrackId = null;
+
+			// Clear any fade interval when stopping
+			if (whiteNoiseFadeInterval) {
+				clearInterval(whiteNoiseFadeInterval);
+				whiteNoiseFadeInterval = null;
+			}
+
+			// Clear any track fade interval when stopping
+			if (trackFadeInterval) {
+				clearInterval(trackFadeInterval);
+				trackFadeInterval = null;
+			}
+
 			if (audioElement) {
 				audioElement.pause();
+				audioElement.volume = 1.0; // Reset volume for next playback
 			}
 			// Update media session to paused state
 			if ("mediaSession" in navigator) {
@@ -377,10 +564,22 @@
 	onDestroy(() => {
 		// Make sure to update playing state on destroy
 		$isPlaying = false;
+
+		// Clear any fade intervals
+		if (whiteNoiseFadeInterval) {
+			clearInterval(whiteNoiseFadeInterval);
+			whiteNoiseFadeInterval = null;
+		}
+		if (trackFadeInterval) {
+			clearInterval(trackFadeInterval);
+			trackFadeInterval = null;
+		}
+
 		if (audioElement) {
 			audioElement.removeEventListener("ended", handleTrackEnded);
 			audioElement.removeEventListener("error", handleAudioError);
 			audioElement.pause();
+			audioElement.volume = 1.0; // Reset volume
 		}
 
 		// Clear media session

@@ -21,6 +21,7 @@ interface PlayableRecording {
 	description?: string;
 	startTime: Date;
 	endTime: Date;
+	type?: string;
 }
 
 /**
@@ -69,6 +70,7 @@ const whiteNoiseRecording: PlayableRecording = {
 	description: undefined,
 	startTime: new Date(0),
 	endTime: new Date(0),
+	type: undefined,
 };
 
 /**
@@ -480,6 +482,7 @@ async function _parseRecordings(
 					description: combinedDescription,
 					startTime,
 					endTime,
+					type: recording.type || undefined,
 				});
 
 				indexTime = endTime;
