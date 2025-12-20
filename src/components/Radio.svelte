@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
+	import { createEventDispatcher, onMount, afterUpdate } from "svelte";
 	import { fade, scale } from "svelte/transition";
 	import { quintOut } from "svelte/easing";
 
@@ -16,6 +16,50 @@
 
 	// State for showing description
 	let showDescription = false;
+
+	// Refs for display elements
+	let display1Element: HTMLElement;
+	let display2Element: HTMLElement;
+	let display3Element: HTMLElement;
+
+	// Track which displays need scrolling
+	let display1NeedsScroll = false;
+	let display2NeedsScroll = false;
+	let display3NeedsScroll = false;
+
+	/**
+	 * Check if an element's text overflows and needs scrolling
+	 */
+	function checkOverflow(element: HTMLElement | null): boolean {
+		if (!element) return false;
+		return element.scrollWidth > element.clientWidth;
+	}
+
+	/**
+	 * Update overflow status for all display elements
+	 */
+	function updateOverflowStatus() {
+		if (power) {
+			display1NeedsScroll = checkOverflow(display1Element);
+			display2NeedsScroll = checkOverflow(display2Element);
+			display3NeedsScroll = checkOverflow(display3Element);
+		}
+	}
+
+	// Check overflow on mount and after updates
+	onMount(() => {
+		updateOverflowStatus();
+	});
+
+	afterUpdate(() => {
+		updateOverflowStatus();
+	});
+
+	// Re-check when power state changes
+	$: if (power) {
+		// Use setTimeout to ensure DOM is updated
+		setTimeout(updateOverflowStatus, 100);
+	}
 
 	const dispatch = createEventDispatcher<{ power: boolean }>();
 
@@ -93,10 +137,61 @@
 	<!-- Display area for track info -->
 	<div class="display-area" class:is-on={power}>
 		{#if power}
-			<div class="display row-1" in:fade={{ duration: 1200, delay: 200 }}>{display1 || ""}</div>
-			<div class="display row-2" in:fade={{ duration: 1200, delay: 400 }}>{display2 || ""}</div>
-			<div class="display row-3" in:fade={{ duration: 1200, delay: 600 }}>
-				{#if isDisplay3Url}
+			<div
+				class="display row-1"
+				class:scrolling={display1NeedsScroll}
+				bind:this={display1Element}
+				in:fade={{ duration: 1200, delay: 200 }}
+			>
+				{#if display1NeedsScroll}
+					<span class="scrolling-text">{display1 || ""}</span>
+					<span class="scrolling-text">{display1 || ""}</span>
+				{:else}
+					{display1 || ""}
+				{/if}
+			</div>
+			<div
+				class="display row-2"
+				class:scrolling={display2NeedsScroll}
+				bind:this={display2Element}
+				in:fade={{ duration: 1200, delay: 400 }}
+			>
+				{#if display2NeedsScroll}
+					<span class="scrolling-text">{display2 || ""}</span>
+					<span class="scrolling-text">{display2 || ""}</span>
+				{:else}
+					{display2 || ""}
+				{/if}
+			</div>
+			<div
+				class="display row-3"
+				class:scrolling={display3NeedsScroll}
+				bind:this={display3Element}
+				in:fade={{ duration: 1200, delay: 600 }}
+			>
+				{#if display3NeedsScroll}
+					{#if isDisplay3Url}
+						<a
+							href={display3}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="display-link scrolling-text"
+						>
+							{display3}
+						</a>
+						<a
+							href={display3}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="display-link scrolling-text"
+						>
+							{display3}
+						</a>
+					{:else}
+						<span class="scrolling-text">{display3 || ""}</span>
+						<span class="scrolling-text">{display3 || ""}</span>
+					{/if}
+				{:else if isDisplay3Url}
 					<a href={display3} target="_blank" rel="noopener noreferrer" class="display-link">
 						{display3}
 					</a>
@@ -279,6 +374,36 @@
 		font-weight: bold;
 		text-shadow: 0 0 3px #cd4276;
 		animation: crt-text-glow 2s ease-in-out infinite alternate;
+		position: relative;
+	}
+
+	/* Scrolling text styles */
+	.display.scrolling {
+		text-overflow: initial;
+		display: flex;
+		gap: 1rem; /* Minimal space between duplicated text */
+	}
+
+	.display.scrolling .scrolling-text {
+		display: inline-block;
+		padding-right: 1rem; /* Match the gap for seamless loop */
+		animation: scroll-text 25s linear infinite;
+		white-space: nowrap;
+	}
+
+	/* Pause scrolling on hover */
+	.display.scrolling:hover .scrolling-text {
+		animation-play-state: paused;
+	}
+
+	/* Scrolling animation */
+	@keyframes scroll-text {
+		0% {
+			transform: translateX(0);
+		}
+		100% {
+			transform: translateX(-100%);
+		}
 	}
 	.display.row-1 {
 		font-size: 0.975rem;
@@ -302,6 +427,13 @@
 	.display-link:hover {
 		opacity: 1;
 		text-decoration: underline;
+	}
+
+	/* Ensure scrolling links maintain their styles */
+	.display-link.scrolling-text {
+		display: inline-block;
+		color: inherit;
+		text-decoration: none;
 	}
 
 	.power-button {
@@ -492,6 +624,16 @@
 		}
 		.display.row-3 {
 			font-size: 4.5vw;
+		}
+
+		/* Adjust scrolling animation for mobile */
+		.display.scrolling {
+			gap: 0.75rem; /* Minimal gap on mobile */
+		}
+
+		.display.scrolling .scrolling-text {
+			padding-right: 0.75rem; /* Match the gap */
+			animation-duration: 20s; /* Slightly faster on mobile */
 		}
 
 		.description-area {
