@@ -31,8 +31,8 @@
 					Ladda upp ditt bidrag till <b class="has-text-danger">Julsändningen</b> ❄️🎄
 				</h3>
 				<p class="mb-3">
-					Det är väldigt enklat att bidra med ditt innehåll till julshown. Ladda upp din inspelning
-					direkt här på hemsidan.
+					Det är enkelt att bidra med ditt innehåll till julshowen. Ladda upp din inspelning direkt
+					här på hemsidan.
 				</p>
 				<div class="has-text-centered">
 					<button class="button is-info is-medium" on:click={() => (showUploadForm = true)}>
