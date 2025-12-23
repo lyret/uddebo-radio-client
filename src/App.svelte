@@ -16,7 +16,8 @@
 
 	// Define routes
 	const routes = {
-		"/": Announcement,
+		"/": Player,
+		"/announcement": Announcement,
 		"/live": Player,
 		"/upload": Upload,
 		"/admin": Admin,
