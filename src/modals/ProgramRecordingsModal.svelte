@@ -1,6 +1,15 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-	import { Music, ChevronUp, ChevronDown, X, ArrowUpDown, AlertCircle } from "lucide-svelte";
+	import { createEventDispatcher, onDestroy } from "svelte";
+	import {
+		Music,
+		ChevronUp,
+		ChevronDown,
+		X,
+		ArrowUpDown,
+		AlertCircle,
+		Play,
+		Pause,
+	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 
 	import type { BroadcastProgram, Recording } from "@/api";
@@ -23,6 +32,12 @@
 	let sortBy: "title" | "edited_at" | "author" = "title";
 	let sortOrder: "asc" | "desc" = "asc";
 	let searchQuery = "";
+
+	// Audio playback state
+	let currentlyPlaying: string | null = null;
+	let audioElements: Record<string, HTMLAudioElement> = {};
+	let playbackProgress: Record<string, number> = {};
+	let audioDurations: Record<string, number> = {};
 
 	$: if (isOpen && program) {
 		loadRecordings().then(() => loadFormData());
@@ -253,6 +268,90 @@
 	function handleSortableSort(fromIndex: number, toIndex: number) {
 		selectedRecordings = arrayMove(selectedRecordings, fromIndex, toIndex);
 	}
+
+	// Audio playback functions
+	function toggleAudioPlayback(recordingId: string, fileUrl: string) {
+		if (currentlyPlaying === recordingId) {
+			// Pause current audio
+			if (audioElements[recordingId]) {
+				audioElements[recordingId].pause();
+				currentlyPlaying = null;
+			}
+		} else {
+			// Stop any currently playing audio
+			if (currentlyPlaying && audioElements[currentlyPlaying]) {
+				audioElements[currentlyPlaying].pause();
+				audioElements[currentlyPlaying].currentTime = 0;
+				playbackProgress[currentlyPlaying] = 0;
+			}
+
+			// Create or get audio element
+			if (!audioElements[recordingId]) {
+				const audio = new Audio(fileUrl);
+				audioElements[recordingId] = audio;
+
+				// Set up event listeners
+				audio.addEventListener("timeupdate", () => {
+					if (audio.duration) {
+						playbackProgress[recordingId] = (audio.currentTime / audio.duration) * 100;
+						playbackProgress = { ...playbackProgress };
+					}
+				});
+
+				audio.addEventListener("loadedmetadata", () => {
+					audioDurations[recordingId] = audio.duration;
+					audioDurations = { ...audioDurations };
+				});
+
+				audio.addEventListener("ended", () => {
+					currentlyPlaying = null;
+					playbackProgress[recordingId] = 0;
+					playbackProgress = { ...playbackProgress };
+				});
+
+				audio.addEventListener("error", (e) => {
+					console.error("Audio playback error:", e);
+					toast.error("Kunde inte spela upp ljudfilen");
+					currentlyPlaying = null;
+				});
+			}
+
+			// Play the audio
+			audioElements[recordingId].play().catch((error) => {
+				console.error("Failed to play audio:", error);
+				toast.error("Kunde inte starta uppspelning");
+			});
+			currentlyPlaying = recordingId;
+		}
+	}
+
+	function seekAudio(recordingId: string, event: MouseEvent) {
+		const target = event.currentTarget as HTMLElement;
+		const rect = target.getBoundingClientRect();
+		const x = event.clientX - rect.left;
+		const percentage = x / rect.width;
+
+		if (audioElements[recordingId]) {
+			audioElements[recordingId].currentTime =
+				percentage * (audioDurations[recordingId] || audioElements[recordingId].duration);
+		}
+	}
+
+	function formatTime(seconds: number): string {
+		if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
+		const mins = Math.floor(seconds / 60);
+		const secs = Math.floor(seconds % 60);
+		return `${mins}:${secs.toString().padStart(2, "0")}`;
+	}
+
+	// Cleanup audio elements on destroy
+	onDestroy(() => {
+		Object.values(audioElements).forEach((audio) => {
+			audio.pause();
+			audio.src = "";
+		});
+		audioElements = {};
+	});
 </script>
 
 <div class="modal" class:is-active={isOpen}>
@@ -414,14 +513,65 @@
 												</span>
 											{/if}
 										</div>
-										<button
-											type="button"
-											class="button is-small is-success is-outlined add-button"
-											on:click|stopPropagation={() => addRecording(recording.id)}
-											title="Lägg till i program"
-										>
-											Lägg till
-										</button>
+										<div class="recording-actions">
+											<button
+												type="button"
+												class="button is-small audio-control-button"
+												on:click|stopPropagation={() =>
+													toggleAudioPlayback(recording.id.toString(), recording.file_url)}
+												title={currentlyPlaying === recording.id.toString() ? "Pausa" : "Spela upp"}
+											>
+												<span class="icon">
+													{#if currentlyPlaying === recording.id.toString()}
+														<Pause size={14} />
+													{:else}
+														<Play size={14} />
+													{/if}
+												</span>
+											</button>
+											<button
+												type="button"
+												class="button is-small is-success is-outlined add-button"
+												on:click|stopPropagation={() => addRecording(recording.id)}
+												title="Lägg till i program"
+											>
+												Lägg till
+											</button>
+										</div>
+										{#if currentlyPlaying === recording.id.toString()}
+											<div
+												class="audio-progress-bar"
+												role="slider"
+												aria-label="Ljuduppspelning"
+												aria-valuemin="0"
+												aria-valuemax="100"
+												aria-valuenow={Math.round(playbackProgress[recording.id.toString()] || 0)}
+												tabindex="0"
+												on:click={(e) => seekAudio(recording.id.toString(), e)}
+												on:keydown={(e) => {
+													if (e.key === "ArrowLeft") {
+														e.preventDefault();
+														const audio = audioElements[recording.id.toString()];
+														if (audio) audio.currentTime = Math.max(0, audio.currentTime - 5);
+													} else if (e.key === "ArrowRight") {
+														e.preventDefault();
+														const audio = audioElements[recording.id.toString()];
+														if (audio)
+															audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+													}
+												}}
+											>
+												<div
+													class="progress-fill"
+													style="width: {playbackProgress[recording.id.toString()] || 0}%"
+												></div>
+												<div class="progress-time">
+													{formatTime(audioElements[recording.id.toString()]?.currentTime || 0)} / {formatTime(
+														audioDurations[recording.id.toString()] || recording.duration
+													)}
+												</div>
+											</div>
+										{/if}
 									</div>
 								{/each}
 							</div>
@@ -521,6 +671,23 @@
 												{/if}
 											{/if}
 										</div>
+										{#if recording && recording.file_url}
+											<button
+												type="button"
+												class="button is-small audio-control-button"
+												on:click|stopPropagation={() =>
+													toggleAudioPlayback(item.id.toString(), recording.file_url)}
+												title={currentlyPlaying === item.id.toString() ? "Pausa" : "Spela upp"}
+											>
+												<span class="icon">
+													{#if currentlyPlaying === item.id.toString()}
+														<Pause size={14} />
+													{:else}
+														<Play size={14} />
+													{/if}
+												</span>
+											</button>
+										{/if}
 										<div class="buttons has-addons">
 											<button
 												type="button"
@@ -556,6 +723,40 @@
 												</span>
 											</button>
 										</div>
+										{#if recording && currentlyPlaying === item.id.toString()}
+											<div
+												class="audio-progress-bar selected"
+												role="slider"
+												aria-label="Ljuduppspelning"
+												aria-valuemin="0"
+												aria-valuemax="100"
+												aria-valuenow={Math.round(playbackProgress[item.id.toString()] || 0)}
+												tabindex="0"
+												on:click={(e) => seekAudio(item.id.toString(), e)}
+												on:keydown={(e) => {
+													if (e.key === "ArrowLeft") {
+														e.preventDefault();
+														const audio = audioElements[item.id.toString()];
+														if (audio) audio.currentTime = Math.max(0, audio.currentTime - 5);
+													} else if (e.key === "ArrowRight") {
+														e.preventDefault();
+														const audio = audioElements[item.id.toString()];
+														if (audio)
+															audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+													}
+												}}
+											>
+												<div
+													class="progress-fill"
+													style="width: {playbackProgress[item.id.toString()] || 0}%"
+												></div>
+												<div class="progress-time">
+													{formatTime(audioElements[item.id.toString()]?.currentTime || 0)} / {formatTime(
+														audioDurations[item.id.toString()] || recording.duration
+													)}
+												</div>
+											</div>
+										{/if}
 									</div>
 								{/each}
 							</div>
@@ -579,21 +780,26 @@
 </div>
 
 <style>
-	.modal-card {
-		width: 95%;
-		max-width: 1200px;
+	:global(.modal.is-active .modal-card) {
+		width: calc(100vw - 40px);
+		max-width: 100%;
+		margin: 20px;
+		height: calc(100vh - 40px);
+		max-height: calc(100vh - 40px);
 	}
 
 	.modal-card-body {
-		max-height: calc(100vh - 200px);
+		max-height: calc(100vh - 160px);
 		overflow-y: auto;
+		padding: 1.5rem;
 	}
 
 	.dual-listbox {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 1.5rem;
-		min-height: 500px;
+		gap: 2rem;
+		min-height: 400px;
+		height: 100%;
 	}
 
 	.listbox-panel {
@@ -603,6 +809,8 @@
 		border-radius: 4px;
 		background: #fafafa;
 		padding: 1rem;
+		height: 100%;
+		min-height: 0;
 	}
 
 	.panel-header {
@@ -619,9 +827,8 @@
 		background: white;
 		border: 1px solid #dbdbdb;
 		border-radius: 4px;
-		padding: 0.5rem;
-		min-height: 350px;
-		max-height: 500px;
+		padding: 0.75rem;
+		min-height: 0;
 		position: relative;
 	}
 
@@ -629,6 +836,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		flex-wrap: wrap;
 		padding: 0.75rem;
 		margin-bottom: 0.5rem;
 		background: white;
@@ -637,6 +845,7 @@
 		cursor: move;
 		transition: all 0.2s;
 		user-select: none;
+		position: relative;
 	}
 
 	.recording-item:hover {
@@ -659,14 +868,97 @@
 
 	.recording-content {
 		flex: 1;
+		min-width: 0;
+		margin-right: 0.5rem;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		overflow: hidden;
+	}
+
+	.recording-content > strong {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		margin-right: 0.5rem;
+		flex-shrink: 1;
+		min-width: 0;
+	}
+
+	.recording-content > span:not(.tag) {
+		flex-shrink: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.recording-content .has-text-grey {
+		max-width: 150px;
+	}
+
+	.recording-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		flex-shrink: 0;
 	}
 
 	.add-button {
 		flex-shrink: 0;
+	}
+
+	.audio-control-button {
+		background: transparent;
+		border-color: rgba(65, 205, 203, 0.3);
+		color: #41cdcb;
+	}
+
+	.audio-control-button:hover {
+		background: rgba(65, 205, 203, 0.1);
+		border-color: #41cdcb;
+		color: #41cdcb;
+	}
+
+	.audio-control-button:focus {
+		box-shadow: 0 0 0 0.125rem rgba(65, 205, 203, 0.25);
+	}
+
+	.audio-progress-bar {
+		width: 100%;
+		height: 24px;
+		background: rgba(65, 205, 203, 0.1);
+		border: 1px solid rgba(65, 205, 203, 0.2);
+		border-radius: 4px;
+		position: relative;
+		cursor: pointer;
+		margin-top: 0.5rem;
+		overflow: hidden;
+		flex-basis: 100%;
+	}
+
+	.audio-progress-bar.selected {
+		background: rgba(65, 205, 203, 0.15);
+		border-color: rgba(65, 205, 203, 0.3);
+	}
+
+	.progress-fill {
+		height: 100%;
+		background: #41cdcb;
+		border-radius: 4px;
+		transition: width 0.1s;
+		position: relative;
+	}
+
+	.progress-time {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		font-size: 0.75rem;
+		color: #363636;
+		font-weight: 600;
+		pointer-events: none;
+		text-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
+		letter-spacing: 0.5px;
 	}
 
 	.selected-item {
@@ -713,19 +1005,64 @@
 		opacity: 0.5;
 	}
 
-	@media (max-width: 768px) {
-		.dual-listbox {
-			grid-template-columns: 1fr;
-			gap: 1rem;
-		}
-
-		.modal-card {
+	@media (max-width: 1024px) {
+		:global(.modal.is-active .modal-card) {
 			width: 100%;
 			margin: 0;
+			height: 100vh;
+			max-height: 100vh;
+			border-radius: 0;
+		}
+
+		.modal-card-body {
+			padding: 1rem;
+			max-height: calc(100vh - 140px);
+		}
+
+		.dual-listbox {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+			min-height: 0;
+		}
+
+		.listbox-panel {
+			height: auto;
+			min-height: 350px;
 		}
 
 		.recording-list {
-			max-height: 300px;
+			max-height: 250px;
+		}
+
+		.recording-content .has-text-grey {
+			max-width: 100px;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.modal-card-body {
+			padding: 0.75rem;
+		}
+
+		.recording-item {
+			padding: 0.5rem;
+			font-size: 0.9rem;
+		}
+
+		.recording-content {
+			font-size: 0.9rem;
+		}
+
+		.audio-progress-bar {
+			height: 20px;
+		}
+
+		.progress-time {
+			font-size: 0.65rem;
+		}
+
+		.buttons.has-addons .button {
+			padding: 0.25rem 0.5rem;
 		}
 	}
 

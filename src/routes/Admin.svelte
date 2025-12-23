@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { toast } from "svelte-sonner";
-	import { LogOut, User as UserIcon, Eye, TrendingUp, BarChart3, Activity } from "lucide-svelte";
+	import { LogOut, User as UserIcon, Users, TrendingUp, BarChart3 } from "lucide-svelte";
 	import Layout from "@/components/Layout.svelte";
-	import VisitorCounter from "@/components/VisitorCounter.svelte";
 	import AccountForm from "@/components/AccountForm.svelte";
 	import { authenticationStore, getVisitorStats } from "@/api";
 	import { onMount } from "svelte";
@@ -12,7 +11,7 @@
 
 	// Visitor statistics
 	let overallStats: VisitorStats | null = null;
-	let playerStats: VisitorStats | null = null;
+	let radioStats: VisitorStats | null = null;
 	let loadingStats = true;
 
 	async function signOutHandler() {
@@ -33,12 +32,12 @@
 	async function loadStatistics() {
 		loadingStats = true;
 		try {
-			const [overall, player] = await Promise.all([
-				getVisitorStats(undefined, 30),
-				getVisitorStats("/player", 30),
+			const [overall, radio] = await Promise.all([
+				getVisitorStats(undefined, 7),
+				getVisitorStats("/", 7),
 			]);
 			overallStats = overall;
-			playerStats = player;
+			radioStats = radio;
 		} catch (error) {
 			console.error("Failed to load visitor statistics:", error);
 		} finally {
@@ -105,7 +104,7 @@
 						<span class="icon">
 							<BarChart3 />
 						</span>
-						<span>Besöksstatistik</span>
+						<span>Besöksstatistik (senaste 7 dagarna)</span>
 					</h2>
 
 					{#if loadingStats}
@@ -113,123 +112,98 @@
 							<button class="button is-loading is-large is-white"></button>
 						</div>
 					{:else}
+						<!-- Main Statistics Cards -->
 						<div class="columns is-multiline">
-							<!-- Overall Statistics -->
-							<div class="column is-full">
-								<div class="box">
-									<h3 class="title is-5 mb-4">
-										<span class="icon has-text-info">
-											<Activity />
+							<!-- Total Website Stats -->
+							<div class="column is-one-third">
+								<div class="box has-background-primary-light">
+									<div class="is-flex is-align-items-center is-justify-content-space-between mb-2">
+										<span class="icon is-large has-text-primary">
+											<Users size={32} />
 										</span>
-										<span>Övergripande statistik (senaste 30 dagarna)</span>
-									</h3>
-									{#if overallStats}
-										<div class="level">
-											<div class="level-item has-text-centered">
-												<div>
-													<p class="heading">Totalt antal besök</p>
-													<p class="title has-text-primary">
-														{formatNumber(overallStats.total_visits)}
-													</p>
-												</div>
-											</div>
-											<div class="level-item has-text-centered">
-												<div>
-													<p class="heading">Unika besökare</p>
-													<p class="title has-text-info">
-														{formatNumber(overallStats.unique_visitors)}
-													</p>
-												</div>
-											</div>
-											<div class="level-item has-text-centered">
-												<div>
-													<p class="heading">Antal sidor</p>
-													<p class="title has-text-success">{overallStats.pages?.length || 0}</p>
-												</div>
-											</div>
+										<div class="has-text-right">
+											<p class="heading">Totala besök</p>
+											<p class="title is-3 has-text-primary">
+												{formatNumber(overallStats?.total_visits || 0)}
+											</p>
 										</div>
-
-										{#if overallStats.pages && overallStats.pages.length > 0}
-											<div class="content">
-												<p class="has-text-weight-semibold mb-2">Besökta sidor:</p>
-												<div class="tags">
-													{#each overallStats.pages as page}
-														<span class="tag is-medium is-light">{page}</span>
-													{/each}
-												</div>
-											</div>
-										{/if}
-									{:else}
-										<p class="has-text-grey">Ingen statistik tillgänglig</p>
-									{/if}
+									</div>
+									<p class="is-size-7 has-text-grey">Alla sidor tillsammans</p>
 								</div>
 							</div>
 
-							<!-- Player Page Statistics -->
-							<div class="column is-half">
-								<div class="box">
-									<h3 class="title is-6 mb-3">
-										<span class="icon has-text-warning">
-											<Eye />
+							<!-- Unique Visitors -->
+							<div class="column is-one-third">
+								<div class="box has-background-info-light">
+									<div class="is-flex is-align-items-center is-justify-content-space-between mb-2">
+										<span class="icon is-large has-text-info">
+											<Users size={32} />
 										</span>
-										<span>Radion</span>
-									</h3>
-									{#if playerStats}
-										<div class="content">
-											<p class="mb-2">
-												<strong>Besök:</strong>
-												{formatNumber(playerStats.total_visits)}
-											</p>
-											<p class="mb-2">
-												<strong>Unika lyssnare:</strong>
-												{formatNumber(playerStats.unique_visitors)}
+										<div class="has-text-right">
+											<p class="heading">Unika besökare</p>
+											<p class="title is-3 has-text-info">
+												{formatNumber(overallStats?.unique_visitors || 0)}
 											</p>
 										</div>
-									{:else}
-										<p class="has-text-grey">Ingen data</p>
-									{/if}
+									</div>
+									<p class="is-size-7 has-text-grey">Individuella enheter</p>
 								</div>
 							</div>
 
-							<!-- Live Counter Widget -->
-							<div class="column is-half">
-								<div class="box">
-									<h3 class="title is-6 mb-3">
-										<span class="icon has-text-danger">
-											<TrendingUp />
+							<!-- Radio Listeners -->
+							<div class="column is-one-third">
+								<div class="box has-background-warning-light">
+									<div class="is-flex is-align-items-center is-justify-content-space-between mb-2">
+										<span class="icon is-large has-text-warning">
+											<TrendingUp size={32} />
 										</span>
-										<span>Live räknare (alla sidor)</span>
-									</h3>
-									<VisitorCounter showDetails={false} autoTrack={false} />
+										<div class="has-text-right">
+											<p class="heading">Radiolyssnare</p>
+											<p class="title is-3 has-text-warning">
+												{formatNumber(radioStats?.unique_visitors || 0)}
+											</p>
+										</div>
+									</div>
+									<p class="is-size-7 has-text-grey">Unika lyssnare på radion</p>
 								</div>
 							</div>
 						</div>
 
-						<!-- Daily Statistics Chart -->
+						<!-- Daily Trend -->
 						{#if overallStats?.daily_stats && overallStats.daily_stats.length > 0}
-							<div class="box mt-4">
-								<h3 class="title is-5 mb-4">Daglig statistik</h3>
+							<div class="box">
+								<h3 class="title is-5 mb-4">Daglig trend</h3>
 								<div class="table-container">
-									<table class="table is-fullwidth is-striped">
+									<table class="table is-fullwidth is-hoverable">
 										<thead>
 											<tr>
 												<th>Datum</th>
-												<th class="has-text-right">Besök</th>
-												<th class="has-text-right">Unika besökare</th>
+												<th class="has-text-centered">Besök</th>
+												<th class="has-text-centered">Unika</th>
 											</tr>
 										</thead>
 										<tbody>
-											{#each overallStats.daily_stats.slice(0, 7) as day}
+											{#each overallStats.daily_stats.slice().reverse() as day}
 												<tr>
 													<td>
-														{new Date(day.date).toLocaleDateString("sv-SE", {
-															weekday: "long",
-															day: "numeric",
-															month: "short",
-														})}
+														<strong
+															>{new Date(day.date).toLocaleDateString("sv-SE", {
+																weekday: "short",
+																day: "numeric",
+																month: "short",
+															})}</strong
+														>
 													</td>
-													<td class="has-text-right">{day.visits}</td>
-													<td class="has-text-right">{day.unique_visitors}</td>
+													<td class="has-text-centered">
+														<span class="tag is-medium is-primary is-light">
+															{day.visits}
+														</span>
+													</td>
+													<td class="has-text-centered">
+														<span class="tag is-medium is-info is-light">
+															{day.unique_visitors}
+														</span>
+													</td>
 												</tr>
 											{/each}
 										</tbody>
@@ -285,20 +259,22 @@
 		padding: 1rem 0;
 	}
 
-	.level-item .title {
-		font-size: 2rem;
-		margin-bottom: 0;
-	}
-
-	.level-item .heading {
+	.heading {
 		text-transform: uppercase;
 		font-size: 0.75rem;
 		letter-spacing: 0.05em;
-		opacity: 0.7;
+		opacity: 0.8;
+		margin-bottom: 0.5rem;
 	}
 
 	.table-container {
-		max-height: 400px;
-		overflow-y: auto;
+		overflow-x: auto;
+	}
+
+	.box.has-background-primary-light,
+	.box.has-background-info-light,
+	.box.has-background-warning-light {
+		border: none;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	}
 </style>
