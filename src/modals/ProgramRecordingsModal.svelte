@@ -9,6 +9,8 @@
 		AlertCircle,
 		Play,
 		Pause,
+		Volume2,
+		Activity,
 	} from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 
@@ -16,6 +18,8 @@
 	import { supabase } from "@/api";
 	import { draggable, dropzone, sortable, arrayMove, type DragData } from "@/api/dndWrapper";
 	import { getSwedishRecordingType } from "@/api/lang";
+	import { analyzeAudioLevels, normalizeAndEncode } from "@/api/audioProcessing";
+	import { convertAudioToMp3FromBlob } from "@/api/audioConverter";
 
 	export let program: BroadcastProgram | null = null;
 	export let isOpen = false;
@@ -38,6 +42,15 @@
 	let audioElements: Record<string, HTMLAudioElement> = {};
 	let playbackProgress: Record<string, number> = {};
 	let audioDurations: Record<string, number> = {};
+
+	// Audio analysis state
+	let showAudioLevels = false;
+	let audioLevels: Record<
+		string,
+		{ peakDb: number; rmsDb: number; analyzing: boolean; suggestedGainDb?: number }
+	> = {};
+	let normalizingAudio = false;
+	let normalizeProgress = { current: 0, total: 0 };
 
 	$: if (isOpen && program) {
 		loadRecordings().then(() => loadFormData());
@@ -138,6 +151,142 @@
 			console.error(error);
 		} finally {
 			loadingRecordings = false;
+		}
+
+		// Analyze audio levels for all recordings
+		if (showAudioLevels) {
+			analyzeAllAudioLevels();
+		}
+	}
+
+	async function analyzeAllAudioLevels() {
+		for (const recording of allRecordings) {
+			if (recording.file_url && !audioLevels[recording.id]) {
+				analyzeRecordingAudio(recording.id.toString(), recording.file_url);
+			}
+		}
+	}
+
+	async function analyzeRecordingAudio(recordingId: string, fileUrl: string) {
+		// Set analyzing state
+		audioLevels[recordingId] = {
+			peakDb: 0,
+			rmsDb: 0,
+			analyzing: true,
+		};
+
+		try {
+			const analysis = await analyzeAudioLevels(fileUrl);
+			audioLevels[recordingId] = {
+				peakDb: analysis.peakDb,
+				rmsDb: analysis.rmsDb,
+				suggestedGainDb: analysis.suggestedGainDb,
+				analyzing: false,
+			};
+		} catch (error) {
+			console.error("Failed to analyze audio for recording", recordingId, error);
+			audioLevels[recordingId] = {
+				peakDb: 0,
+				rmsDb: 0,
+				analyzing: false,
+			};
+		}
+	}
+
+	async function normalizeSelectedRecordings() {
+		if (!program || selectedRecordings.length === 0) return;
+
+		normalizingAudio = true;
+		normalizeProgress = { current: 0, total: selectedRecordings.length };
+
+		try {
+			toast.loading(`Normaliserar ${selectedRecordings.length} inspelningar...`, {
+				id: "normalize-audio",
+			});
+
+			for (let i = 0; i < selectedRecordings.length; i++) {
+				const item = selectedRecordings[i];
+				const recording = getRecordingInfo(item.id);
+
+				if (!recording?.file_url) continue;
+
+				normalizeProgress.current = i + 1;
+
+				// Check if we have audio analysis for this recording
+				if (!audioLevels[recording.id] || audioLevels[recording.id].analyzing) {
+					await analyzeRecordingAudio(recording.id.toString(), recording.file_url);
+				}
+
+				const suggestedGain = audioLevels[recording.id]?.suggestedGainDb;
+
+				// Skip if no gain adjustment needed
+				if (!suggestedGain || Math.abs(suggestedGain) < 0.5) continue;
+
+				toast.loading(
+					`Normaliserar ${recording.title} (${i + 1}/${selectedRecordings.length})...`,
+					{ id: "normalize-audio" }
+				);
+
+				// Normalize the audio
+				const { blob } = await normalizeAndEncode(recording.file_url, suggestedGain, {
+					useLeveling: true,
+					levelingTarget: -16, // Broadcast standard
+				});
+
+				// Convert to MP3
+				const mp3Blob = await convertAudioToMp3FromBlob(blob, `${recording.title}_normalized.mp3`);
+
+				// Upload the normalized file
+				const fileName = `normalized_${recording.id}_${Date.now()}.mp3`;
+				const { error: uploadError } = await supabase.storage
+					.from("audio")
+					.upload(fileName, mp3Blob, {
+						contentType: "audio/mpeg",
+						upsert: false,
+					});
+
+				if (uploadError) throw uploadError;
+
+				// Update the recording with the new file URL
+				const {
+					data: { publicUrl },
+				} = supabase.storage.from("audio").getPublicUrl(fileName);
+
+				const { error: updateError } = await supabase
+					.from("recordings")
+					.update({
+						file_url: publicUrl,
+						edited_at: new Date().toISOString(),
+					})
+					.eq("id", recording.id);
+
+				if (updateError) throw updateError;
+
+				// Update local recording data
+				const recordingIndex = allRecordings.findIndex((r) => r.id === recording.id);
+				if (recordingIndex !== -1) {
+					allRecordings[recordingIndex].file_url = publicUrl;
+				}
+
+				// Re-analyze the normalized audio
+				await analyzeRecordingAudio(recording.id.toString(), publicUrl);
+			}
+
+			toast.success(`Normaliserade ${selectedRecordings.length} inspelningar!`, {
+				id: "normalize-audio",
+			});
+
+			// Trigger re-render
+			allRecordings = [...allRecordings];
+		} catch (error) {
+			console.error("Normalization failed:", error);
+			toast.error("Normalisering misslyckades", {
+				id: "normalize-audio",
+				description: error instanceof Error ? error.message : "Ett okänt fel uppstod",
+			});
+		} finally {
+			normalizingAudio = false;
+			normalizeProgress = { current: 0, total: 0 };
 		}
 	}
 
@@ -388,6 +537,17 @@
 						<div class="panel-header">
 							<h3 class="subtitle is-6 mb-2">Tillgängliga inspelningar</h3>
 							<div class="controls">
+								<!-- Audio Levels Toggle -->
+								<div class="field mb-2">
+									<label class="checkbox">
+										<input
+											type="checkbox"
+											bind:checked={showAudioLevels}
+											on:change={analyzeAllAudioLevels}
+										/>
+										<span class="ml-1">Visa ljudnivåer (dB)</span>
+									</label>
+								</div>
 								<!-- Search -->
 								<div class="field has-addons mb-2">
 									<div class="control is-expanded">
@@ -512,6 +672,42 @@
 													{getSwedishRecordingType(recording.type)}
 												</span>
 											{/if}
+											{#if showAudioLevels && audioLevels[recording.id]}
+												<span class="audio-levels ml-2">
+													{#if audioLevels[recording.id].analyzing}
+														<span class="tag is-small is-light">
+															<span class="icon is-small">
+																<Activity size={12} />
+															</span>
+															<span>Analyserar...</span>
+														</span>
+													{:else}
+														<span
+															class="tag is-small"
+															class:is-danger={audioLevels[recording.id].peakDb > -3}
+															class:is-warning={audioLevels[recording.id].peakDb > -6 &&
+																audioLevels[recording.id].peakDb <= -3}
+															class:is-success={audioLevels[recording.id].peakDb <= -6}
+														>
+															<span class="icon is-small">
+																<Volume2 size={12} />
+															</span>
+															<span>Peak: {audioLevels[recording.id].peakDb} dB</span>
+														</span>
+														<span class="tag is-small is-light ml-1">
+															RMS: {audioLevels[recording.id].rmsDb} dB
+														</span>
+														{#if audioLevels[recording.id].suggestedGainDb !== undefined && Math.abs(audioLevels[recording.id].suggestedGainDb) > 0.5}
+															<span class="tag is-small is-info ml-1" title="Föreslagen justering">
+																Gain: {audioLevels[recording.id].suggestedGainDb &&
+																audioLevels[recording.id].suggestedGainDb > 0
+																	? "+"
+																	: ""}{audioLevels[recording.id].suggestedGainDb} dB
+															</span>
+														{/if}
+													{/if}
+												</span>
+											{/if}
 										</div>
 										<div class="recording-actions">
 											<button
@@ -591,6 +787,29 @@
 									<span class="tag is-info">Total: {totalDuration}</span>
 								</div>
 							</div>
+							{#if showAudioLevels && selectedRecordings.length > 0}
+								<div class="field mt-2">
+									<button
+										type="button"
+										class="button is-small is-primary"
+										disabled={normalizingAudio}
+										class:is-loading={normalizingAudio}
+										on:click={normalizeSelectedRecordings}
+									>
+										<span class="icon">
+											<Volume2 size={14} />
+										</span>
+										<span>
+											{#if normalizingAudio}
+												Normaliserar ({normalizeProgress.current}/{normalizeProgress.total})...
+											{:else}
+												Normalisera ljudnivåer
+											{/if}
+										</span>
+									</button>
+									<p class="help mt-1">Justerar ljudnivåer till broadcast-standard (-16 dB RMS)</p>
+								</div>
+							{/if}
 						</div>
 
 						{#if loadingRecordings}
@@ -667,6 +886,45 @@
 															recording.type === "poetry"}
 													>
 														{getSwedishRecordingType(recording.type)}
+													</span>
+												{/if}
+												{#if showAudioLevels && recording && audioLevels[recording.id]}
+													<span class="audio-levels ml-2">
+														{#if audioLevels[recording.id].analyzing}
+															<span class="tag is-small is-light">
+																<span class="icon is-small">
+																	<Activity size={12} />
+																</span>
+																<span>Analyserar...</span>
+															</span>
+														{:else}
+															<span
+																class="tag is-small"
+																class:is-danger={audioLevels[recording.id].peakDb > -3}
+																class:is-warning={audioLevels[recording.id].peakDb > -6 &&
+																	audioLevels[recording.id].peakDb <= -3}
+																class:is-success={audioLevels[recording.id].peakDb <= -6}
+															>
+																<span class="icon is-small">
+																	<Volume2 size={12} />
+																</span>
+																<span>Peak: {audioLevels[recording.id].peakDb} dB</span>
+															</span>
+															<span class="tag is-small is-light ml-1">
+																RMS: {audioLevels[recording.id].rmsDb} dB
+															</span>
+															{#if audioLevels[recording.id].suggestedGainDb !== undefined && Math.abs(audioLevels[recording.id].suggestedGainDb) > 0.5}
+																<span
+																	class="tag is-small is-info ml-1"
+																	title="Föreslagen justering"
+																>
+																	Gain: {audioLevels[recording.id].suggestedGainDb &&
+																	audioLevels[recording.id].suggestedGainDb > 0
+																		? "+"
+																		: ""}{audioLevels[recording.id].suggestedGainDb} dB
+																</span>
+															{/if}
+														{/if}
 													</span>
 												{/if}
 											{/if}
@@ -1073,5 +1331,33 @@
 
 	.recording-item.draggable:active {
 		cursor: grabbing;
+	}
+
+	.audio-levels {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.audio-levels .tag {
+		font-size: 0.7rem;
+		padding: 0.25rem 0.5rem;
+		font-family: monospace;
+	}
+
+	.audio-levels .icon {
+		margin-right: 0.25rem;
+	}
+
+	@media (max-width: 768px) {
+		.audio-levels {
+			display: block;
+			margin-top: 0.5rem;
+		}
+
+		.audio-levels .tag {
+			display: inline-block;
+			margin-bottom: 0.25rem;
+		}
 	}
 </style>
