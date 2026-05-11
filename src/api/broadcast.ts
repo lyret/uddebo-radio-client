@@ -372,11 +372,15 @@ function createCurrentlyPlayingMedium(): Readable<CurrentlyPlaying> {
 				const isCurrentlyWhiteNoise =
 					currentlyPlayingRecording === null || currentlyPlayingRecording.id === "white-noise";
 
-				if (!playing || isCurrentlyWhiteNoise) {
-					// If not playing, or if we're playing white noise, check for scheduled tracks
+				// If the scheduled track changed while playing (e.g. admin jumped to a different time),
+				// force an update immediately instead of waiting for the current track to finish
+				const scheduled = get(currentRecording);
+				const trackChanged = scheduled?.id !== currentlyPlayingRecording?.id;
+
+				if (!playing || isCurrentlyWhiteNoise || trackChanged) {
 					updateCurrentPlaying(false);
 				}
-				// If playing a regular track, we wait for the finishedPlaying event
+				// If playing the same track, we wait for the finishedPlaying event
 			});
 
 			unsubscribeEffectiveDateTime = effectiveDateTime.subscribe(() => {
