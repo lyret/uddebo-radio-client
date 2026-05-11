@@ -1,17 +1,17 @@
 {
 	"name": "uddebo-radio-client",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"supabase": "supabase gen types typescript --project-id \"zkftcwrmauaqlinlsvxs\" --schema public > database.types.ts && mv database.types.ts supabase/database.types.ts",
-		"supabase:init": "supabase init",
 		"build": "vite build",
 		"build:dev": "vite build --mode development",
 		"lint": "eslint . && svelte-check --tsconfig ./tsconfig.json",
 		"preview": "vite preview",
-		"check": "svelte-check --tsconfig ./tsconfig.json"
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"pocketbase:generate-types": "npx pocketbase-typegen --env --out src/api/pocketbase-types.ts",
+		"pocketbase": "source .env && ./pocketbase/pocketbase serve --http=$POCKETBASE_BINDING"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
@@ -22,6 +22,8 @@
 		"bulma": "^0.9.4",
 		"emittery": "^1.2.0",
 		"lucide-svelte": "^0.462.0",
+		"pocketbase": "^0.26.9",
+		"pocketbase-typegen": "^1.5.0",
 		"supabase": "^2.65.7",
 		"svelte-persisted-store": "^0.12.0",
 		"svelte-sonner": "^0.3.0",
