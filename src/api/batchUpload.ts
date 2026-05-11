@@ -3,11 +3,12 @@
  * Handles multiple file uploads with progress tracking
  */
 
-import { supabase } from "./supabase";
+import { pb } from "./pb";
+import { createRecording } from "./recordingOperations";
 import { uploadAudioFile } from "./upload";
 import { getFilenameWithDate } from "./filename";
 import { getAudioDuration } from "./audioProcessing";
-import type { Recording, RecordingType } from "./supabase/types";
+import type { Recording, RecordingType } from "./pb/types";
 
 /**
  * Upload item interface for batch uploads
@@ -85,9 +86,7 @@ export async function uploadBatchItem(
 ): Promise<UploadResult> {
 	try {
 		// Get current user
-		const {
-			data: { user },
-		} = await supabase.auth.getUser();
+		const user = pb.authStore.model;
 
 		// Report initial progress
 		onProgress?.(10);
@@ -106,30 +105,21 @@ export async function uploadBatchItem(
 		onProgress?.(50);
 
 		// Create database record
-		const uploadedAt = new Date().toISOString();
-		const recordingData = {
+		const { data, error: dbError } = await createRecording({
 			title: item.title.trim() || "Namnlös inspelning",
-			author: item.author.trim() || null,
+			author: item.author.trim() || undefined,
 			type: item.type,
-			description: item.description.trim() || null,
+			description: item.description.trim() || undefined,
 			duration: uploadResult.duration || item.duration,
-			file_url: uploadResult.url,
+			file: uploadResult.file,
 			file_size: uploadResult.file.size,
 			uploaded_filename:
 				uploadResult.wasConverted && uploadResult.originalFile
 					? getFilenameWithDate(new File([new Blob()], uploadResult.originalFile.name))
 					: getFilenameWithDate(uploadResult.file),
-			uploaded_at: uploadedAt,
-			uploaded_by: user?.id || null,
-			edited_at: uploadedAt,
-			edited_by: user?.id || null,
-		};
-
-		const { data, error: dbError } = await supabase
-			.from("recordings")
-			.insert(recordingData)
-			.select()
-			.single();
+			uploaded_by: user?.id || undefined,
+			edited_by: user?.id || undefined,
+		});
 
 		if (dbError) throw dbError;
 
@@ -139,7 +129,7 @@ export async function uploadBatchItem(
 		return {
 			id: item.id,
 			success: true,
-			recording: data,
+			recording: data ?? undefined,
 		};
 	} catch (error) {
 		console.error("Upload error:", error);

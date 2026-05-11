@@ -3,16 +3,15 @@
 	import { toast } from "svelte-sonner";
 	import {
 		uploadAudioFile,
-		uploadCoverImage,
 		createRecording,
 		validateImageFile,
 		formatFileSize,
 		getFilenameWithDate,
+		pb,
 	} from "@/api";
 	import { needsAudioConversion } from "@/api/audioConverter";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
-	import { supabase } from "@/api/supabase";
-	import type { RecordingType } from "@/api/supabase/types";
+	import type { RecordingType } from "@/api/pb/types";
 
 	let uploading = false;
 	let selectedFile: File | null = null;
@@ -76,54 +75,33 @@
 		uploading = true;
 
 		try {
-			// Get current user
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
+			const user = pb.authStore.model;
 
-			// Upload audio file
+			// Process audio file (convert if needed, extract duration)
 			const audioResult = await uploadAudioFile({
 				file: selectedFile,
-				bucket: "recordings",
 				showProgress: true,
 				autoConvert: true,
 				maxSizeMB: 50,
 			});
 
-			// Upload cover if provided
-			let coverUrl = null;
-			if (selectedCoverFile) {
-				try {
-					coverUrl = await uploadCoverImage(selectedCoverFile, "cover_images", "");
-				} catch (error) {
-					console.error("Cover upload error:", error);
-					toast.warning("Omslagsbilden kunde inte laddas upp");
-				}
-			}
-
-			// Create recording in database
-			const now = new Date().toISOString();
+			// Create recording in database — file and optional cover uploaded together
 			const { data, error } = await createRecording({
 				title: title.trim(),
-				author: author.trim() || null,
-				description: description.trim() || null,
+				author: author.trim() || undefined,
+				description: description.trim() || undefined,
 				type,
-				link_out_url: linkOutUrl.trim() || null,
-				cover_url: coverUrl,
-				file_url: audioResult.url,
+				link_out_url: linkOutUrl.trim() || undefined,
+				file: audioResult.file,
 				file_size: audioResult.file.size,
 				duration: audioResult.duration || 0,
 				uploaded_filename:
 					audioResult.wasConverted && audioResult.originalFile
 						? getFilenameWithDate(new File([new Blob()], audioResult.originalFile.name))
 						: getFilenameWithDate(audioResult.file),
-				uploaded_by: user?.id || null,
-				uploaded_at: now,
-				edited_at: now,
-				edited_by: user?.id || null,
-				captions_url: null,
-				okey_at: null,
-				okey_by: null,
+				uploaded_by: user?.id || undefined,
+				edited_by: user?.id || undefined,
+				...(selectedCoverFile ? { cover: selectedCoverFile } : {}),
 			});
 
 			if (error) throw error;

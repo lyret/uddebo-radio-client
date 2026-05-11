@@ -16,7 +16,7 @@
 	import Layout from "@/components/Layout.svelte";
 	import ProgramEditorModal from "@/modals/ProgramEditorModal.svelte";
 	import ProgramRecordingsModal from "@/modals/ProgramRecordingsModal.svelte";
-	import { supabase } from "@/api";
+	import { pb } from "@/api";
 	import { programsUIState } from "@/api/ui";
 
 	let programs: BroadcastProgram[] = [];
@@ -36,15 +36,8 @@
 
 	async function loadPrograms() {
 		try {
-			const { data, error } = await supabase
-				.from("broadcast_programs")
-				.select("*")
-				.order($programsUIState.sortField, {
-					ascending: $programsUIState.sortOrder === "asc",
-				});
-
-			if (error) throw error;
-			programs = data || [];
+			const sort = `${$programsUIState.sortOrder === "asc" ? "" : "-"}${$programsUIState.sortField}`;
+			programs = await pb.collection("broadcast_programs").getFullList({ sort });
 		} catch (error) {
 			toast.error("Kunde inte ladda sändningsprogram");
 			console.error(error);
@@ -89,20 +82,10 @@
 
 	async function updateProgramActiveStatus(program: BroadcastProgram, isActive: boolean) {
 		try {
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-
-			const { error } = await supabase
-				.from("broadcast_programs")
-				.update({
-					is_active: isActive,
-					edited_at: new Date().toISOString(),
-					edited_by: user?.id || null,
-				})
-				.eq("id", program.id);
-
-			if (error) throw error;
+			await pb.collection("broadcast_programs").update(program.id, {
+				is_active: isActive,
+				edited_by: pb.authStore.model?.id || undefined,
+			});
 
 			toast.success(`Programmet "${program.title}" ${isActive ? "aktiverat" : "inaktiverat"}`);
 			loadPrograms();
@@ -280,9 +263,9 @@
 									</label>
 								</td>
 								<td>
-									{#if program.cover_url}
+									{#if program.cover}
 										<figure class="image is-48x48">
-											<img src={program.cover_url} alt="{program.title} cover" />
+											<img src={pb.files.getURL(program, program.cover)} alt="{program.title} cover" />
 										</figure>
 									{:else}
 										<figure class="image is-48x48">

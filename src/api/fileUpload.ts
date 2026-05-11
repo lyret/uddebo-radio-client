@@ -3,8 +3,8 @@
  * Handles file validation and upload operations for captions and other files
  */
 
-import { supabase } from "./supabase";
-import { getFilenameWithDate } from "./filename";
+import { pb } from "./pb";
+import type { Recording } from "./pb/types";
 
 /**
  * Valid caption file types
@@ -70,38 +70,27 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 }
 
 /**
- * Uploads a captions file to Supabase storage
+ * Uploads a captions file and attaches it to a recording record
  */
 export async function uploadCaptionsFile(
 	file: File,
-	recordingId: number
-): Promise<{ url: string | null; error: Error | null }> {
+	recordingId: string
+): Promise<{ data: Recording | null; error: Error | null }> {
 	try {
-		// Validate file
 		const validation = validateCaptionFile(file);
 		if (!validation.valid) {
 			throw new Error(validation.error);
 		}
 
-		const fileExt = `.${file.name.split(".").pop()}`;
-		const timestamp = Date.now();
-		const fileName = `${recordingId}_${timestamp}${fileExt}`;
+		const formData = new FormData();
+		formData.append("captions", file);
 
-		// Upload to storage
-		const { error: uploadError } = await supabase.storage.from("captions").upload(fileName, file, {
-			contentType: file.type || "text/plain",
-		});
-
-		if (uploadError) throw uploadError;
-
-		// Get public URL
-		const { data: urlData } = supabase.storage.from("captions").getPublicUrl(fileName);
-
-		return { url: urlData.publicUrl, error: null };
+		const data = await pb.collection("recordings").update(recordingId, formData);
+		return { data, error: null };
 	} catch (error) {
 		console.error("Error uploading captions file:", error);
 		return {
-			url: null,
+			data: null,
 			error: error instanceof Error ? error : new Error("Failed to upload captions file"),
 		};
 	}

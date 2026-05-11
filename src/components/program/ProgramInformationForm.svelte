@@ -3,7 +3,7 @@
 	import { Info, Calendar, Save, Image, Trash2 } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
 	import type { BroadcastProgram } from "@/api";
-	import { supabase } from "@/api";
+	import { pb } from "@/api";
 	import { validateImageFile } from "@/api/fileUpload";
 
 	export let program: BroadcastProgram | null = null;
@@ -34,7 +34,7 @@
 			title = program.title;
 			description = program.description || "";
 			startTime = program.start_time ? new Date(program.start_time).toISOString().slice(0, 16) : "";
-			coverUrl = program.cover_url || null;
+			coverUrl = program.cover ? pb.files.getURL(program, program.cover) : null;
 		} else {
 			// Reset for new program
 			title = "";
@@ -55,61 +55,26 @@
 
 		loading = true;
 		try {
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
+			const userId = pb.authStore.model?.id || undefined;
 
-			let finalCoverUrl = coverUrl;
-
-			// Upload cover image if selected
-			if (selectedCoverFile) {
-				const fileExt = selectedCoverFile.name.split(".").pop();
-				const timestamp = Date.now();
-				const programId = program?.id || `new_${timestamp}`;
-				const fileName = `${programId}_${timestamp}.${fileExt}`;
-
-				// Delete old cover if exists and it's a Supabase URL
-				if (coverUrl && coverUrl.includes("supabase")) {
-					const oldFileName = coverUrl.split("/").pop();
-					if (oldFileName) {
-						await supabase.storage.from("cover_images").remove([oldFileName]);
-					}
-				}
-
-				// Upload new cover
-				const { error: uploadError } = await supabase.storage
-					.from("cover_images")
-					.upload(fileName, selectedCoverFile);
-
-				if (uploadError) throw uploadError;
-
-				// Get public URL
-				const { data: urlData } = supabase.storage.from("cover_images").getPublicUrl(fileName);
-				finalCoverUrl = urlData.publicUrl;
-			}
-
-			const programData = {
+			const programData: Record<string, unknown> = {
 				title: title.trim(),
-				description: description.trim() || null,
+				description: description.trim() || undefined,
 				start_time: new Date(startTime).toISOString(),
-				cover_url: finalCoverUrl || null,
-				edited_at: new Date().toISOString(),
-				edited_by: user?.id || null,
+				edited_by: userId,
 			};
+
+			if (selectedCoverFile) {
+				programData.cover = selectedCoverFile;
+			}
 
 			if (program) {
 				// Update existing program
-				const { error } = await supabase
-					.from("broadcast_programs")
-					.update(programData)
-					.eq("id", program.id);
-
-				if (error) throw error;
+				const updated = await pb.collection("broadcast_programs").update(program.id, programData);
 				toast.success("Sändningsprogrammet uppdaterat");
 
-				// Update local state if cover was uploaded
 				if (selectedCoverFile) {
-					coverUrl = finalCoverUrl;
+					coverUrl = updated.cover ? pb.files.getURL(updated, updated.cover) : null;
 					selectedCoverFile = null;
 					if (coverFileInput) coverFileInput.value = "";
 				}
@@ -117,20 +82,16 @@
 				dispatch("saved", { type: "update" });
 			} else {
 				// Create new program
-				const { error } = await supabase.from("broadcast_programs").insert({
+				await pb.collection("broadcast_programs").create({
 					...programData,
 					is_active: false,
 					recordings: [],
-					created_at: new Date().toISOString(),
-					created_by: user?.id || null,
+					created_by: userId,
 				});
 
-				if (error) throw error;
 				toast.success("Sändningsprogrammet skapat");
 
-				// Update local state if cover was uploaded
 				if (selectedCoverFile) {
-					coverUrl = finalCoverUrl;
 					selectedCoverFile = null;
 					if (coverFileInput) coverFileInput.value = "";
 				}
@@ -168,29 +129,9 @@
 		if (!program || !coverUrl) return;
 
 		try {
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-
-			// Delete from storage if it's a Supabase URL
-			if (coverUrl.includes("supabase")) {
-				const fileName = coverUrl.split("/").pop();
-				if (fileName) {
-					await supabase.storage.from("cover_images").remove([fileName]);
-				}
-			}
-
-			// Clear from database
-			const { error } = await supabase
-				.from("broadcast_programs")
-				.update({
-					cover_url: null,
-					edited_at: new Date().toISOString(),
-					edited_by: user?.id || null,
-				})
-				.eq("id", program.id);
-
-			if (error) throw error;
+			const formData = new FormData();
+			formData.append("cover", "");
+			await pb.collection("broadcast_programs").update(program.id, formData);
 
 			coverUrl = null;
 			toast.success("Omslagsbilden har tagits bort");
@@ -217,9 +158,7 @@
 
 		loading = true;
 		try {
-			const { error } = await supabase.from("broadcast_programs").delete().eq("id", program.id);
-
-			if (error) throw error;
+			await pb.collection("broadcast_programs").delete(program.id);
 
 			toast.success("Sändningsprogrammet har tagits bort");
 			dispatch("deleted");

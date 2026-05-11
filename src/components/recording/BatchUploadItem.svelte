@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { FileAudio, Check, AlertCircle, X } from "lucide-svelte";
+	import { FileAudio, Check, AlertCircle } from "lucide-svelte";
 	import { formatFileSize } from "@/api/upload";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
-	import type { RecordingType } from "@/api/supabase/types";
+	import type { RecordingType } from "@/api/pb/types";
 
 	export let id: string;
 	export let file: File;

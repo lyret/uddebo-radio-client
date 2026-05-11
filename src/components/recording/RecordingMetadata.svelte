@@ -3,7 +3,8 @@
 	import { Download, CheckCircle, AlertCircle } from "lucide-svelte";
 	import { formatFileSize } from "@/api/upload";
 	import { formatDuration } from "@/api/audioProcessing";
-	import type { Recording } from "@/api/supabase/types";
+	import type { Recording } from "@/api/pb/types";
+	import { pb } from "@/api";
 	import {
 		extractAudioMetadata,
 		formatSampleRate,
@@ -23,23 +24,25 @@
 		return new Date(dateString).toLocaleString("sv-SE");
 	}
 
-	$: displayCoverUrl = coverUrl || recording.cover_url;
+	$: recordingFileUrl = recording.file ? pb.files.getURL(recording, recording.file) : "";
+	$: recordingCoverUrl = recording.cover ? pb.files.getURL(recording, recording.cover) : null;
+	$: displayCoverUrl = coverUrl || recordingCoverUrl;
 
 	// Load audio metadata when component mounts or recording changes
 	onMount(() => {
 		loadAudioMetadata();
 	});
 
-	$: if (recording?.file_url) {
+	$: if (recording?.file) {
 		loadAudioMetadata();
 	}
 
 	async function loadAudioMetadata() {
-		if (!recording?.file_url || loadingMetadata) return;
+		if (!recording?.file || loadingMetadata) return;
 
 		loadingMetadata = true;
 		try {
-			audioMetadata = await extractAudioMetadata(recording.file_url);
+			audioMetadata = await extractAudioMetadata(recordingFileUrl);
 		} catch (error) {
 			console.error("Failed to load audio metadata:", error);
 			audioMetadata = null;
@@ -153,7 +156,7 @@
 		{/if}
 
 		<div class="field mt-3">
-			<a href={recording.file_url} download class="button is-small is-fullwidth is-outlined">
+			<a href={recordingFileUrl} download class="button is-small is-fullwidth is-outlined">
 				<span class="icon">
 					<Download />
 				</span>

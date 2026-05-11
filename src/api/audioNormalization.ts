@@ -5,7 +5,6 @@
 
 import { toast } from "svelte-sonner";
 import { convertAudioToMp3FromBlob } from "./audioConverter";
-import { uploadAudioFile } from "./upload";
 import { updateRecording } from "./recordingOperations";
 import { normalizeAndEncode } from "./audioProcessing";
 import type { NormalizationOptions } from "./audioProcessing";
@@ -22,7 +21,7 @@ export interface NormalizationWithPreviewOptions extends NormalizationOptions {
  * Handles normalization, conversion, upload, and database update
  */
 export async function normalizeRecordingAudio(
-	recording: { id: string; file_url: string },
+	recording: { id: string; fileUrl: string },
 	options: NormalizationWithPreviewOptions
 ): Promise<{ data: any; error: any }> {
 	const {
@@ -60,7 +59,7 @@ export async function normalizeRecordingAudio(
 		} else {
 			// Process the audio from scratch
 			const { blob: normalizedBlob, format } = await normalizeAndEncode(
-				recording.file_url,
+				recording.fileUrl,
 				gainDb,
 				{
 					useCompression,
@@ -86,21 +85,21 @@ export async function normalizeRecordingAudio(
 			type: finalBlob.type,
 		});
 
-		// Upload the normalized audio
-		const uploadResult = await uploadAudioFile({
-			file: normalizedFile,
-			bucket: "recordings",
-			folder: "",
-			showProgress: showProgress,
-			autoConvert: false, // Already converted
-			maxSizeMB: 50,
+		// Get duration of the normalized file
+		const audio = new Audio();
+		audio.src = URL.createObjectURL(normalizedFile);
+		await new Promise((resolve) => {
+			audio.addEventListener("loadedmetadata", resolve);
+			audio.load();
 		});
+		const duration = Math.floor(audio.duration);
+		URL.revokeObjectURL(audio.src);
 
-		// Update the recording with new audio URL
+		// Update the recording with the new audio file
 		const { data, error } = await updateRecording(recording.id, {
-			file_url: uploadResult.url,
-			file_size: uploadResult.file.size,
-			duration: uploadResult.duration,
+			file: normalizedFile,
+			file_size: normalizedFile.size,
+			duration,
 		});
 
 		if (error) throw error;

@@ -15,7 +15,7 @@
 	import { toast } from "svelte-sonner";
 
 	import type { BroadcastProgram, Recording } from "@/api";
-	import { supabase } from "@/api";
+	import { pb, updateRecording } from "@/api";
 	import { draggable, dropzone, sortable, arrayMove, type DragData } from "@/api/dndWrapper";
 	import { getSwedishRecordingType } from "@/api/lang";
 	import { analyzeAudioLevels, normalizeAndEncode } from "@/api/audioProcessing";
@@ -135,17 +135,17 @@
 			: [];
 	}
 
+	function getRecordingUrl(recording: Recording): string {
+		return recording.file ? pb.files.getURL(recording, recording.file) : "";
+	}
+
 	async function loadRecordings() {
 		loadingRecordings = true;
 		try {
-			const { data, error } = await supabase
-				.from("recordings")
-				.select("*")
-				.not("okey_at", "is", null)
-				.order("title", { ascending: true });
-
-			if (error) throw error;
-			allRecordings = data || [];
+			allRecordings = await pb.collection("recordings").getFullList({
+				filter: 'okey_at != null && okey_at != ""',
+				sort: "title",
+			});
 		} catch (error) {
 			toast.error("Kunde inte ladda inspelningar");
 			console.error(error);
@@ -161,8 +161,8 @@
 
 	async function analyzeAllAudioLevels() {
 		for (const recording of allRecordings) {
-			if (recording.file_url && !audioLevels[recording.id]) {
-				analyzeRecordingAudio(recording.id.toString(), recording.file_url);
+			if (recording.file && !audioLevels[recording.id]) {
+				analyzeRecordingAudio(recording.id, getRecordingUrl(recording));
 			}
 		}
 	}
@@ -208,13 +208,15 @@
 				const item = selectedRecordings[i];
 				const recording = getRecordingInfo(item.id);
 
-				if (!recording?.file_url) continue;
+				if (!recording?.file) continue;
 
 				normalizeProgress.current = i + 1;
 
+				const fileUrl = getRecordingUrl(recording);
+
 				// Check if we have audio analysis for this recording
 				if (!audioLevels[recording.id] || audioLevels[recording.id].analyzing) {
-					await analyzeRecordingAudio(recording.id.toString(), recording.file_url);
+					await analyzeRecordingAudio(recording.id, fileUrl);
 				}
 
 				const suggestedGain = audioLevels[recording.id]?.suggestedGainDb;
@@ -228,48 +230,31 @@
 				);
 
 				// Normalize the audio
-				const { blob } = await normalizeAndEncode(recording.file_url, suggestedGain, {
+				const { blob } = await normalizeAndEncode(fileUrl, suggestedGain, {
 					useLeveling: true,
-					levelingTarget: -16, // Broadcast standard
+					levelingTarget: -16,
 				});
 
 				// Convert to MP3
 				const mp3Blob = await convertAudioToMp3FromBlob(blob, `${recording.title}_normalized.mp3`);
+				const normalizedFile = new File([mp3Blob], `${recording.id}_normalized.mp3`, {
+					type: "audio/mpeg",
+				});
 
-				// Upload the normalized file
-				const fileName = `normalized_${recording.id}_${Date.now()}.mp3`;
-				const { error: uploadError } = await supabase.storage
-					.from("audio")
-					.upload(fileName, mp3Blob, {
-						contentType: "audio/mpeg",
-						upsert: false,
-					});
-
-				if (uploadError) throw uploadError;
-
-				// Update the recording with the new file URL
-				const {
-					data: { publicUrl },
-				} = supabase.storage.from("audio").getPublicUrl(fileName);
-
-				const { error: updateError } = await supabase
-					.from("recordings")
-					.update({
-						file_url: publicUrl,
-						edited_at: new Date().toISOString(),
-					})
-					.eq("id", recording.id);
+				// Update the recording with the new file
+				const { data: updatedRecording, error: updateError } = await updateRecording(recording.id, {
+					file: normalizedFile,
+					file_size: normalizedFile.size,
+				});
 
 				if (updateError) throw updateError;
 
-				// Update local recording data
+				// Update local recording data and re-analyze
 				const recordingIndex = allRecordings.findIndex((r) => r.id === recording.id);
-				if (recordingIndex !== -1) {
-					allRecordings[recordingIndex].file_url = publicUrl;
+				if (recordingIndex !== -1 && updatedRecording) {
+					allRecordings[recordingIndex] = updatedRecording;
+					await analyzeRecordingAudio(recording.id, getRecordingUrl(updatedRecording));
 				}
-
-				// Re-analyze the normalized audio
-				await analyzeRecordingAudio(recording.id.toString(), publicUrl);
 			}
 
 			toast.success(`Normaliserade ${selectedRecordings.length} inspelningar!`, {
@@ -295,23 +280,12 @@
 
 		loading = true;
 		try {
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-
-			// Extract just the IDs from the selected recordings
 			const recordingIds = selectedRecordings.map((r) => r.id);
 
-			const { error } = await supabase
-				.from("broadcast_programs")
-				.update({
-					recordings: recordingIds,
-					edited_at: new Date().toISOString(),
-					edited_by: user?.id || null,
-				})
-				.eq("id", program.id);
-
-			if (error) throw error;
+			await pb.collection("broadcast_programs").update(program.id, {
+				recordings: recordingIds,
+				edited_by: pb.authStore.model?.id || undefined,
+			});
 
 			toast.success("Programmets inspelningar uppdaterades");
 			dispatch("updated");
@@ -714,7 +688,7 @@
 												type="button"
 												class="button is-small audio-control-button"
 												on:click|stopPropagation={() =>
-													toggleAudioPlayback(recording.id.toString(), recording.file_url)}
+													toggleAudioPlayback(recording.id.toString(), getRecordingUrl(recording))}
 												title={currentlyPlaying === recording.id.toString() ? "Pausa" : "Spela upp"}
 											>
 												<span class="icon">
@@ -929,12 +903,12 @@
 												{/if}
 											{/if}
 										</div>
-										{#if recording && recording.file_url}
+										{#if recording && getRecordingUrl(recording)}
 											<button
 												type="button"
 												class="button is-small audio-control-button"
 												on:click|stopPropagation={() =>
-													toggleAudioPlayback(item.id.toString(), recording.file_url)}
+													toggleAudioPlayback(item.id.toString(), getRecordingUrl(recording))}
 												title={currentlyPlaying === item.id.toString() ? "Pausa" : "Spela upp"}
 											>
 												<span class="icon">

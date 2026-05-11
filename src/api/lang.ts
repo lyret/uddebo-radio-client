@@ -1,4 +1,4 @@
-import type { RecordingType } from "./supabase/types";
+import type { RecordingType } from "./pb/types";
 
 /**
  * Swedish translations for RecordingType enum values

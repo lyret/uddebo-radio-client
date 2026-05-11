@@ -16,7 +16,7 @@
 	import Layout from "@/components/Layout.svelte";
 	import RecordingEditorModal from "@/modals/RecordingEditorModal.svelte";
 	import RecordingsBatchUploadModal from "@/modals/RecordingsBatchUploadModal.svelte";
-	import { supabase } from "@/api";
+	import { pb } from "@/api";
 	import { getAllSwedishRecordingTypes, getSwedishRecordingType } from "@/api/lang";
 	import { recordingsUIState } from "@/api/ui";
 
@@ -36,27 +36,23 @@
 
 	async function loadRecordings() {
 		try {
-			let query = supabase.from("recordings").select("*");
+			const filters: string[] = [];
 
-			// Apply filter based on okey_at status
 			if ($recordingsUIState.filterStatus === "ok") {
-				query = query.not("okey_at", "is", null);
+				filters.push('okey_at != null && okey_at != ""');
 			} else if ($recordingsUIState.filterStatus === "not_ok") {
-				query = query.is("okey_at", null);
+				filters.push('(okey_at = null || okey_at = "")');
 			}
-			// 'all' shows everything without filter
 
-			// Apply type filter
 			if ($recordingsUIState.filterType !== "all") {
-				query = query.eq("type", $recordingsUIState.filterType);
+				filters.push(`type = "${$recordingsUIState.filterType}"`);
 			}
 
-			const { data, error } = await query.order($recordingsUIState.sortField, {
-				ascending: $recordingsUIState.sortOrder === "asc",
+			const sort = `${$recordingsUIState.sortOrder === "asc" ? "" : "-"}${$recordingsUIState.sortField}`;
+			recordings = await pb.collection("recordings").getFullList({
+				filter: filters.join(" && ") || undefined,
+				sort,
 			});
-
-			if (error) throw error;
-			recordings = data || [];
 		} catch (error) {
 			toast.error("Kunde inte ladda inspelningar");
 			console.error(error);
@@ -108,7 +104,7 @@
 				return;
 			}
 			playingId = recording.id;
-			audioElement.src = recording.file_url;
+			audioElement.src = recording.file ? pb.files.getURL(recording, recording.file) : "";
 			audioElement.play();
 		}
 	}
@@ -128,7 +124,7 @@
 
 		const handlePlay = () => {
 			if (audioElement.src && !isEditorOpen) {
-				const playingRecording = recordings.find((r) => r.file_url === audioElement.src);
+				const playingRecording = recordings.find((r) => r.file && pb.files.getURL(r, r.file) === audioElement.src);
 				if (playingRecording) {
 					playingId = playingRecording.id;
 				}
@@ -345,9 +341,9 @@
 									{/if}
 								</td>
 								<td>
-									{#if recording.cover_url}
+									{#if recording.cover}
 										<figure class="image is-48x48">
-											<img src={recording.cover_url} alt="{recording.title} cover" />
+											<img src={pb.files.getURL(recording, recording.cover)} alt="{recording.title} cover" />
 										</figure>
 									{:else}
 										<figure class="image is-48x48">
@@ -455,8 +451,6 @@
 	<RecordingEditorModal
 		recording={editingRecording}
 		bind:isOpen={isEditorOpen}
-		{audioElement}
-		isPlaying={playingId === editingRecording?.id}
 		on:close={handleEditorClose}
 		on:updated={handleEditorUpdate}
 		on:deleted={handleEditorUpdate}

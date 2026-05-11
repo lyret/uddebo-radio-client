@@ -4,7 +4,17 @@ export { getDateFromFilename, getFilenameWithDate, getOriginalFilename } from ".
 export { broadcastScheduleStore, currentRecording, nextRecording } from "./broadcast";
 export * from "./audioConverter";
 export * from "./upload";
-export * from "./supabase";
+export { pb } from "./pb";
+export type {
+	User,
+	Recording,
+	RecordingInsert,
+	RecordingUpdate,
+	RecordingType,
+	BroadcastProgram,
+	BroadcastProgramInsert,
+	BroadcastProgramUpdate,
+} from "./pb/types";
 export * from "./ui";
 export * from "./recordingOperations";
 export * from "./audioProcessing";

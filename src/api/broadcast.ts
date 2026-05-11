@@ -1,9 +1,9 @@
 import type { Readable } from "svelte/store";
-import type { BroadcastProgram } from "./supabase/types";
+import type { BroadcastProgram } from "./pb/types";
 import Emittery from "emittery";
 import { readable, derived, writable, get } from "svelte/store";
 import { effectiveDateTime } from "./datetime";
-import { supabase } from "./supabase";
+import { pb } from "./pb";
 
 const DEFAULT_COVER_URL = "/default-cover.jpg";
 
@@ -92,20 +92,12 @@ function createBroadcastScheduleStore(): Readable<PlayableBroadcast> {
 			// Fetch program data once
 			(async () => {
 				try {
-					const { data, error } = await supabase
-						.from("broadcast_programs")
-						.select("*")
-						.eq("is_active", true)
-						.order("created_at", { ascending: false })
-						.limit(1)
-						.single();
+					const data = await pb
+						.collection("broadcast_programs")
+						.getFirstListItem("is_active = true", { sort: "-created_at" });
 
 					if (cancelled) {
 						return;
-					} else if (error) {
-						throw error;
-					} else if (!data) {
-						throw new Error("No active broadcast program found");
 					} else {
 						// Parse start time
 						const startTime = data.start_time ? new Date(data.start_time) : new Date();
@@ -160,7 +152,7 @@ function createBroadcastScheduleStore(): Readable<PlayableBroadcast> {
 
 /**
  * The broadcast schedule store instance.
- * Maintains a list of scheduled recordings from the active broadcast program in Supabase.
+ * Maintains a list of scheduled recordings from the active broadcast program.
  */
 export const broadcastScheduleStore = createBroadcastScheduleStore();
 
@@ -439,14 +431,10 @@ async function _parseRecordings(
 		// Extract unique IDs from the array
 		const uniqueIds = [...new Set(recordingsIds.map((id) => String(id)))];
 
-		// Fetch recording data from Supabase
-		const { data: recordingsData, error } = await supabase
-			.from("recordings")
-			.select("*")
-			.in("id", uniqueIds);
-		if (error) {
-			throw new Error(`Failed to fetch recordings: ${error.message}`);
-		}
+		// Fetch recording data from PocketBase
+		const recordingsData = await pb.collection("recordings").getFullList({
+			filter: uniqueIds.map((id) => `id="${id}"`).join(" || "),
+		});
 		if (!recordingsData || recordingsData.length === 0) {
 			throw new Error("No recordings found for the provided IDs");
 		}
@@ -476,8 +464,11 @@ async function _parseRecordings(
 					title: recording.title || "",
 					author: recording.author || "",
 					duration: Number(recording.duration) || 0,
-					audioUrl: String(recording.file_url || ""),
-					coverUrl: recording.cover_url || program.cover_url || DEFAULT_COVER_URL,
+					audioUrl: recording.file ? pb.files.getURL(recording, recording.file) : "",
+					coverUrl:
+						(recording.cover ? pb.files.getURL(recording, recording.cover) : null) ||
+						(program.cover ? pb.files.getURL(program, program.cover) : null) ||
+						DEFAULT_COVER_URL,
 					linkOutUrl: recording.link_out_url || undefined,
 					description: combinedDescription,
 					startTime,

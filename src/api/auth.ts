@@ -1,6 +1,6 @@
-import type { User } from "./supabase";
+import type { User } from "./pb";
 import { writable, derived } from "svelte/store";
-import { supabase } from "./supabase";
+import { pb } from "./pb";
 
 export const authenticationStore = _createAuthStore();
 
@@ -26,40 +26,35 @@ function _createAuthStore() {
 		 * Initialize the auth store and set up listeners
 		 */
 		initialize: async () => {
-			// Get initial session
-			const {
-				data: { user },
-			} = await supabase.auth.getUser();
-			set(user);
+			set((pb.authStore.model as User) ?? null);
 
-			// Listen for auth changes
-			const {
-				data: { subscription },
-			} = supabase.auth.onAuthStateChange((_event, session) => {
-				set(session?.user ?? null);
+			const unsubscribe = pb.authStore.onChange(() => {
+				set((pb.authStore.model as User) ?? null);
 			});
 
-			// Return cleanup function
-			return () => {
-				subscription.unsubscribe();
-			};
+			return () => unsubscribe();
 		},
 		/**
 		 * Sign in with email and password
 		 */
 		signIn: async (email: string, password: string) => {
-			const { error } = await supabase.auth.signInWithPassword({
-				email,
-				password,
-			});
-			return { error };
+			try {
+				await pb.collection("users").authWithPassword(email, password);
+				return { error: null };
+			} catch (err) {
+				return { error: err as Error };
+			}
 		},
 		/**
 		 * Sign out the current user
 		 */
 		signOut: async () => {
-			const { error } = await supabase.auth.signOut();
-			return { error };
+			try {
+				pb.authStore.clear();
+				return { error: null };
+			} catch (err) {
+				return { error: err as Error };
+			}
 		},
 	};
 }

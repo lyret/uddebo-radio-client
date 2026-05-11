@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from "svelte";
-	import { Check, Trash2, X } from "lucide-svelte";
+	import { Check, Trash2 } from "lucide-svelte";
 	import { toast } from "svelte-sonner";
-	import type { Recording } from "@/api/supabase/types";
+	import type { Recording, RecordingType } from "@/api/pb/types";
 	import {
 		updateRecording,
 		deleteRecording,
@@ -11,10 +11,8 @@
 		deleteRecordingCover,
 		deleteRecordingCaptions,
 		uploadAudioFile,
-		uploadCoverImage,
-		uploadCaptionsFile,
 		trimAudioFile,
-		formatFileSize,
+		pb,
 	} from "@/api";
 	import { normalizeRecordingAudio } from "@/api/audioNormalization";
 	import AudioPlayer from "@/components/recording/AudioPlayer.svelte";
@@ -30,7 +28,7 @@
 	let title = "";
 	let author = "";
 	let description = "";
-	let type = "unknown";
+	let type: RecordingType = "unknown";
 	let linkOutUrl = "";
 	let coverUrl: string | null = null;
 	let captionsUrl: string | null = null;
@@ -43,7 +41,6 @@
 	let uploading = false;
 	let uploadingCover = false;
 	let uploadingCaptions = false;
-	let normalizingAudio = false;
 
 	// Key to force AudioPlayer remount
 	let audioPlayerKey = 0;
@@ -70,10 +67,10 @@
 		title = recording.title || "";
 		author = recording.author || "";
 		description = recording.description || "";
-		type = recording.type || "unknown";
+		type = (recording.type || "unknown") as RecordingType;
 		linkOutUrl = recording.link_out_url || "";
-		coverUrl = recording.cover_url || null;
-		captionsUrl = recording.captions_url || null;
+		coverUrl = recording.cover ? pb.files.getURL(recording, recording.cover) : null;
+		captionsUrl = recording.captions ? pb.files.getURL(recording, recording.captions) : null;
 
 		// Initialize the form component with current values
 		if (formComponent) {
@@ -120,74 +117,48 @@
 		saving = true;
 		try {
 			const formData = event.detail;
-			let finalCoverUrl = coverUrl;
-			let finalCaptionsUrl = captionsUrl;
 
-			// Upload cover image if selected
-			if (formData.coverFile) {
-				uploadingCover = true;
-				try {
-					finalCoverUrl = await uploadCoverImage(formData.coverFile, "cover_images", "");
-				} catch (error) {
-					console.error("Cover upload error:", error);
-					toast.error("Kunde inte ladda upp omslagsbild");
-					return;
-				} finally {
-					uploadingCover = false;
-				}
-			}
-
-			// Upload captions file if selected
-			if (formData.captionsFile) {
-				uploadingCaptions = true;
-				try {
-					const { url, error: uploadError } = await uploadCaptionsFile(
-						formData.captionsFile,
-						recording.id
-					);
-					if (uploadError) throw uploadError;
-					finalCaptionsUrl = url;
-				} catch (error) {
-					console.error("Captions upload error:", error);
-					toast.error("Kunde inte ladda upp textfil");
-					return;
-				} finally {
-					uploadingCaptions = false;
-				}
-			}
-
-			const updateData = {
+			const updateData: Record<string, unknown> = {
 				title: formData.title.trim(),
-				author: formData.author.trim() || null,
-				description: formData.description.trim() || null,
+				author: formData.author.trim() || undefined,
+				description: formData.description.trim() || undefined,
 				type: formData.type,
-				link_out_url: formData.link_out_url?.trim() || null,
-				cover_url: finalCoverUrl || null,
-				captions_url: finalCaptionsUrl || null,
+				link_out_url: formData.link_out_url?.trim() || undefined,
 			};
 
+			if (formData.coverFile) {
+				uploadingCover = true;
+				updateData.cover = formData.coverFile;
+			}
+
+			if (formData.captionsFile) {
+				uploadingCaptions = true;
+				updateData.captions = formData.captionsFile;
+			}
+
 			const { data, error } = await updateRecording(recording.id, updateData);
+			uploadingCover = false;
+			uploadingCaptions = false;
 
 			if (error) throw error;
 
 			if (data) {
 				recording = data;
-				coverUrl = data.cover_url || null;
-				captionsUrl = data.captions_url || null;
+				coverUrl = data.cover ? pb.files.getURL(data, data.cover) : null;
+				captionsUrl = data.captions ? pb.files.getURL(data, data.captions) : null;
 				const changedType = updateData.type !== recording.type;
 				dispatch("updated", { recording: data, changedType });
 				toast.success("Ändringar sparade");
 
-				// Update form's initial values after successful save
 				if (formComponent) {
 					formComponent.initialize({
 						title: data.title || "",
 						author: data.author || "",
 						description: data.description || "",
-						type: data.type || "unknown",
+						type: (data.type || "unknown") as RecordingType,
 						linkOutUrl: data.link_out_url || "",
-						coverUrl: data.cover_url || null,
-						captionsUrl: data.captions_url || null,
+						coverUrl,
+						captionsUrl,
 					});
 				}
 			}
@@ -208,15 +179,13 @@
 		try {
 			const uploadResult = await uploadAudioFile({
 				file: selectedAudioFile,
-				bucket: "recordings",
-				folder: "",
 				showProgress: true,
 				autoConvert: true,
 				maxSizeMB: 50,
 			});
 
 			const { data, error } = await updateRecording(recording.id, {
-				file_url: uploadResult.url,
+				file: uploadResult.file,
 				file_size: uploadResult.file.size,
 				duration: uploadResult.duration,
 			});
@@ -255,7 +224,7 @@
 				formComponent.updateCoverUrl(null);
 			}
 			toast.success("Omslagsbild borttagen");
-			dispatch("updated", { recording: { ...recording, cover_url: null } });
+			dispatch("updated", { recording: { ...recording, cover: "" } });
 		} catch (error) {
 			console.error("Delete cover error:", error);
 			toast.error("Kunde inte ta bort omslagsbild");
@@ -274,7 +243,7 @@
 				formComponent.updateCaptionsUrl(null);
 			}
 			toast.success("Textfil borttagen");
-			dispatch("updated", { recording: { ...recording, captions_url: null } });
+			dispatch("updated", { recording: { ...recording, captions: "" } });
 		} catch (error) {
 			console.error("Delete captions error:", error);
 			toast.error("Kunde inte ta bort textfil");
@@ -348,23 +317,25 @@
 	}
 
 	async function handleVolumeNormalize(event: CustomEvent) {
-		if (!recording || !recording.file_url) return;
+		if (!recording || !recording.file) return;
 
 		const options = event.detail;
 		if (options.gainDb === 0 && !options.useCompression && !options.useLeveling) return; // No adjustment needed
 
-		normalizingAudio = true;
 		try {
-			const { data } = await normalizeRecordingAudio(recording, options);
+			const { data } = await normalizeRecordingAudio(
+				{ id: recording.id, fileUrl: pb.files.getURL(recording, recording.file) },
+				options
+			);
 
 			if (data) {
 				recording = data;
-				// Force AudioPlayer to remount with new audio URL
 				audioPlayerKey++;
 				dispatch("updated", { recording: data });
 			}
-		} finally {
-			normalizingAudio = false;
+		} catch (err) {
+			console.error("Normalize error:", err);
+			toast.error("Kunde inte normalisera ljudfil");
 		}
 	}
 
@@ -372,7 +343,11 @@
 		if (!recording) return;
 
 		try {
-			const blob = await trimAudioFile(recording.file_url, event.detail.start, event.detail.end);
+			const blob = await trimAudioFile(
+			pb.files.getURL(recording, recording.file),
+			event.detail.start,
+			event.detail.end
+		);
 			const fileName = `trimmed_${Date.now()}.wav`;
 			const file = new File([blob], fileName, { type: "audio/wav" });
 
@@ -420,13 +395,13 @@
 			<section class="modal-card-body">
 				{#if recording && isOpen}
 					<!-- Audio Player -->
-					{#if recording.file_url}
+					{#if recording.file}
 						<div class="box mb-4">
 							<h4 class="title is-6 mb-3">Ljudspelare</h4>
 							{#key audioPlayerKey}
 								<AudioPlayer
 									bind:this={audioPlayerComponent}
-									audioUrl={recording.file_url}
+									audioUrl={pb.files.getURL(recording, recording.file)}
 									enableTrimming={true}
 									enableReplacement={true}
 									enableVolumeControl={true}

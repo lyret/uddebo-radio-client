@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from "svelte";
 	import { Save, Image, FileText, Trash2, Info } from "lucide-svelte";
-	import type { RecordingType } from "@/api/supabase/types";
+	import type { RecordingType } from "@/api/pb/types";
 	import { getAllSwedishRecordingTypes } from "@/api/lang";
 	import { validateImageFile, validateCaptionFile } from "@/api/fileUpload";
 

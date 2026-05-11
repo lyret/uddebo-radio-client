@@ -82,7 +82,7 @@
 							<strong>{$authenticationStore.email}</strong>
 							<br />
 							<small
-								>Konto skapat: {new Date($authenticationStore.created_at).toLocaleDateString(
+								>Konto skapat: {new Date($authenticationStore.created).toLocaleDateString(
 									"sv-SE"
 								)}</small
 							>
